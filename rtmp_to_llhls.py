@@ -145,7 +145,7 @@ class RTMPtoHLSConverter:
             'ffmpeg',
             '-loglevel', 'verbose',  # Increased verbosity for debugging
             '-stats',  # Show encoding stats
-            '-fflags', '+igndts',
+            '-fflags', 'igndts',
             '-i', self.rtmp_url,
             '-c:v', 'libx264',  # Video codec
             '-preset', 'ultrafast',  # Fast encoding for low latency
@@ -224,7 +224,7 @@ class RTMPtoHLSConverter:
         cmd = [
             'ffmpeg',
             '-loglevel', 'info',
-            '-fflags', '+genpts+igndts',  # Handle timestamp issues
+            '-fflags', 'genpts+igndts',  # Handle timestamp issues
             '-i', self.rtmp_url,
             '-c:v', 'copy',  # Copy video codec (no re-encoding for recording)
             '-c:a', 'copy',  # Copy audio codec (no re-encoding for recording)
@@ -277,7 +277,7 @@ class RTMPtoHLSConverter:
         cmd = [
             'ffmpeg',
             '-loglevel', 'error',  # Only log errors for frame extraction
-            '-fflags', '+genpts+igndts',
+            '-fflags', 'genpts+igndts',
             '-i', self.rtmp_url,
             '-vf', f'fps={FRAME_EXTRACTION_FPS}',  # Extract 1 frame per second
             '-q:v', '2',  # JPEG quality (2 is high quality)
@@ -978,16 +978,15 @@ def serve_hls(stream_key, filename):
     
     # Set appropriate headers for HLS
     if filename.endswith('.m3u8'):
-        return send_from_directory(
+        response = send_from_directory(
             stream_dir,
             filename,
-            mimetype='application/vnd.apple.mpegurl',
-            headers={
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
+            mimetype='application/vnd.apple.mpegurl'
         )
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     elif filename.endswith('.ts') or filename.endswith('.mp4'):
         return send_from_directory(
             stream_dir,
