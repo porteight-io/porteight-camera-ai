@@ -19,6 +19,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+recordings/
+hls_output/
+frames/
 
 # Virtual Environment
 venv/
