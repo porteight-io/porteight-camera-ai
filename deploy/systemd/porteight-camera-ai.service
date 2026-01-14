@@ -11,6 +11,7 @@ WorkingDirectory=/opt/porteight-camera-ai
 
 # Persist DB + recordings + HLS under /var/lib (change as needed)
 Environment=PERSIST_DIR=/var/lib/porteight-camera-ai
+Environment=WEB_DIR=/opt/porteight-camera-ai/web
 
 # If you want to override individually:
 # Environment=DB_PATH=/var/lib/porteight-camera-ai/camera_ai.db

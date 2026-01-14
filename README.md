@@ -111,6 +111,8 @@ sudo systemctl enable --now porteight-camera-ai
 sudo systemctl status porteight-camera-ai --no-pager
 ```
 
+If your service crashes with `status=2`, it’s commonly because it can’t find `web/templates` or `web/static`. The service file sets `WEB_DIR=/opt/porteight-camera-ai/web` to avoid this.
+
 6. Open ports / security groups:
 
 - **RTMP ingest**: TCP **1935**

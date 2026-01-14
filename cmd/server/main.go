@@ -52,6 +52,11 @@ func main() {
 	dbPath := flag.String("db", dbPathEnv, "path to sqlite db file")
 	recDir := flag.String("recordings", recDirEnv, "directory to store recordings")
 	hlsDir := flag.String("hls", hlsDirEnv, "directory to store HLS output (m3u8/ts/json)")
+	webDirEnv := os.Getenv("WEB_DIR")
+	if webDirEnv == "" {
+		webDirEnv = "./web"
+	}
+	webDir := flag.String("web", webDirEnv, "directory containing web/templates and web/static")
 	flag.Parse()
 
 	// Ensure DB directory exists (sqlite won't create parent dirs)
@@ -81,10 +86,10 @@ func main() {
 	store := cookie.NewStore([]byte("secret")) // Change "secret" to env var in production
 	r.Use(sessions.Sessions("mysession", store))
 
-	r.LoadHTMLGlob("web/templates/*")
+	r.LoadHTMLGlob(filepath.Join(*webDir, "templates", "*"))
 	// Serve HLS from the configured directory (must be registered before /static to take precedence)
 	r.Static("/static/hls", *hlsDir)
-	r.Static("/static", "./web/static")
+	r.Static("/static", filepath.Join(*webDir, "static"))
 
 	// Public Routes
 	r.GET("/login", func(c *gin.Context) {
