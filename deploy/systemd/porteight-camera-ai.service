@@ -12,6 +12,13 @@ WorkingDirectory=/opt/porteight-camera-ai
 # Persist DB + recordings + HLS under /var/lib (change as needed)
 Environment=PERSIST_DIR=/var/lib/porteight-camera-ai
 Environment=WEB_DIR=/opt/porteight-camera-ai/web
+Environment=GIN_MODE=release
+
+# Session cookie config
+# - SESSION_AUTH_KEY must be 32+ bytes (required)
+# - SESSION_SECURE should be "false" if you are serving plain HTTP on :8080, and "true" if behind HTTPS.
+Environment=SESSION_AUTH_KEY=CHANGE_ME_TO_A_LONG_RANDOM_SECRET_32+_BYTES
+Environment=SESSION_SECURE=false
 
 # If you want to override individually:
 # Environment=DB_PATH=/var/lib/porteight-camera-ai/camera_ai.db

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -83,7 +84,36 @@ func main() {
 	r := gin.Default()
 
 	// Session Store
-	store := cookie.NewStore([]byte("secret")) // Change "secret" to env var in production
+	// IMPORTANT: cookie.NewStore uses gorilla/securecookie. The auth key should be 32+ bytes.
+	// If it's too short, session.Save() can fail and you won't be able to login.
+	authKey := os.Getenv("SESSION_AUTH_KEY")
+	encKey := os.Getenv("SESSION_ENC_KEY") // optional (16/24/32 bytes) for encryption
+	if authKey == "" {
+		// Keep a fallback for local dev, but strongly recommend setting SESSION_AUTH_KEY in production.
+		authKey = "dev-only-please-set-SESSION_AUTH_KEY-to-a-32+-byte-secret"
+		log.Println("WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.")
+	}
+	var store sessions.Store
+	if encKey != "" {
+		store = cookie.NewStore([]byte(authKey), []byte(encKey))
+	} else {
+		store = cookie.NewStore([]byte(authKey))
+	}
+
+	// Cookie settings (tuned for "IP:8080 over HTTP" by default)
+	secureCookie := false
+	if v := os.Getenv("SESSION_SECURE"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			secureCookie = b
+		}
+	}
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 30, // 30 days
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   secureCookie, // set true only when serving over HTTPS
+	})
 	r.Use(sessions.Sessions("mysession", store))
 
 	r.LoadHTMLGlob(filepath.Join(*webDir, "templates", "*"))
@@ -110,7 +140,11 @@ func main() {
 
 		session := sessions.Default(c)
 		session.Set("user_id", user.ID)
-		session.Save()
+		if err := session.Save(); err != nil {
+			log.Printf("Failed to save session: %v", err)
+			c.HTML(http.StatusInternalServerError, "login.html", gin.H{"Error": "Login failed (session error). Check server logs."})
+			return
+		}
 		c.Redirect(http.StatusFound, "/")
 	})
 
