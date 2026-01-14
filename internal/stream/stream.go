@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,8 @@ import (
 
 	"porteight-camera-ai/internal/db"
 
-	"github.com/datarhei/joy4/av/avutil"
+	"github.com/datarhei/joy4/av"
+	"github.com/datarhei/joy4/codec/h264parser"
 	"github.com/datarhei/joy4/format/flv"
 	"github.com/datarhei/joy4/format/rtmp"
 )
@@ -99,9 +101,42 @@ func (s *Server) handlePlay(conn *rtmp.Conn) {
 	conn.Close()
 }
 
-func (s *Server) handlePublish(conn *rtmp.Conn) {
-	streams, _ := conn.Streams()
+func stripAnnexBStartCode(nalu []byte) []byte {
+	if len(nalu) >= 4 && bytes.Equal(nalu[:4], []byte{0, 0, 0, 1}) {
+		return nalu[4:]
+	}
+	if len(nalu) >= 3 && bytes.Equal(nalu[:3], []byte{0, 0, 1}) {
+		return nalu[3:]
+	}
+	return nalu
+}
 
+func extractH264SpsPps(pktData []byte) (sps []byte, pps []byte) {
+	nalus, _ := h264parser.SplitNALUs(pktData)
+	for _, n := range nalus {
+		n = stripAnnexBStartCode(n)
+		if len(n) == 0 {
+			continue
+		}
+		typ := n[0] & 0x1f
+		switch typ {
+		case 7: // SPS
+			if sps == nil {
+				sps = n
+			}
+		case 8: // PPS
+			if pps == nil {
+				pps = n
+			}
+		}
+		if sps != nil && pps != nil {
+			return sps, pps
+		}
+	}
+	return sps, pps
+}
+
+func (s *Server) handlePublish(conn *rtmp.Conn) {
 	parts := strings.Split(strings.Trim(conn.URL.Path, "/"), "/")
 	if len(parts) < 2 {
 		log.Println("Invalid path")
@@ -115,6 +150,22 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 		log.Printf("Invalid stream key: %s", key)
 		conn.Close()
 		return
+	}
+
+	// Fetch streams *after* key validation and try to ensure we have usable codec config
+	// (some cameras publish H264 without an AVC sequence header; FFmpeg then can't detect frame size).
+	streams, _ := conn.Streams()
+
+	log.Printf("RTMP publish request: key=%s from=%s path=%s streams=%d", key, conn.RemoteAddr(), conn.URL.Path, len(streams))
+	for i, st := range streams {
+		switch c := st.(type) {
+		case av.VideoCodecData:
+			log.Printf("  stream[%d] video codec=%v resolution=%dx%d", i, c.Type(), c.Width(), c.Height())
+		case av.AudioCodecData:
+			log.Printf("  stream[%d] audio codec=%v sample_rate=%dHz channels=%d sample_fmt=%v", i, c.Type(), c.SampleRate(), c.ChannelLayout().Count(), c.SampleFormat())
+		default:
+			log.Printf("  stream[%d] codec=%v type=%T", i, st.Type(), st)
+		}
 	}
 
 	startTime := time.Now()
@@ -142,12 +193,69 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	}
 	s.writeStreamMetadata(liveDir, metadata)
 
+	// If H264 video is missing size/config, try to recover SPS/PPS from early packets (no transcoding).
+	// We buffer a small number of packets and, if successful, rebuild the H264 codec config record.
+	var prePkts []av.Packet
+	var videoIdx = -1
+	var needH264Repair bool
+	for i, st := range streams {
+		if v, ok := st.(av.VideoCodecData); ok && v.Type() == av.H264 {
+			videoIdx = i
+			if v.Width() == 0 || v.Height() == 0 {
+				needH264Repair = true
+				log.Printf("H264 stream missing resolution in codec header (stream[%d]); attempting SPS/PPS recovery from packets", i)
+			}
+			break
+		}
+	}
+
+	if needH264Repair && videoIdx >= 0 {
+		deadline := time.Now().Add(5 * time.Second)
+		var sps, pps []byte
+		for time.Now().Before(deadline) && (sps == nil || pps == nil) && len(prePkts) < 300 {
+			pkt, err := conn.ReadPacket()
+			if err != nil {
+				log.Printf("Failed while probing packets for SPS/PPS: %v", err)
+				break
+			}
+			prePkts = append(prePkts, pkt)
+
+			// Only inspect video packets
+			if int(pkt.Idx) != videoIdx || len(pkt.Data) == 0 {
+				continue
+			}
+
+			ps, pp := extractH264SpsPps(pkt.Data)
+			if sps == nil && ps != nil {
+				sps = ps
+			}
+			if pps == nil && pp != nil {
+				pps = pp
+			}
+		}
+
+		if sps != nil && pps != nil {
+			if cd, err := h264parser.NewCodecDataFromSPSAndPPS(sps, pps); err == nil {
+				streams[videoIdx] = cd
+				log.Printf("Recovered H264 SPS/PPS from packets; repaired codec header. resolution=%dx%d", cd.Width(), cd.Height())
+			} else {
+				log.Printf("Found SPS/PPS but failed to build H264 codec data: %v", err)
+			}
+		} else {
+			log.Printf("Could not recover SPS/PPS from early packets. Camera may not send SPS/PPS/IDR; FFmpeg copy-mode will likely fail until it does.")
+		}
+	}
+
 	// Create a pipe to tee the input to both FFmpeg processes
 	pipeReader, pipeWriter := io.Pipe()
 
 	// FFmpeg for LIVE HLS (low latency, small buffer)
 	liveArgs := []string{
 		"-y",
+		"-analyzeduration", "20M",
+		"-probesize", "20M",
+		"-fflags", "+igndts+genpts",
+		"-use_wallclock_as_timestamps", "1",
 		"-f", "flv", "-i", "pipe:0",
 		"-c:v", "copy", "-c:a", "copy",
 		"-f", "hls",
@@ -177,6 +285,10 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	// Adjust CRF/preset/scale to tune quality vs. CPU usage.
 	recordArgs := []string{
 		"-y",
+		"-analyzeduration", "20M",
+		"-probesize", "20M",
+		"-fflags", "+igndts+genpts",
+		"-use_wallclock_as_timestamps", "1",
 		"-f", "flv", "-i", "pipe:0",
 		// Video: H.265 (libx265) for higher compression efficiency
 		"-c:v", "libx265",
@@ -250,10 +362,25 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 		return
 	}
 
-	// Copy packets
-	err = avutil.CopyFile(muxer, conn)
-	if err != nil {
-		log.Printf("Stream copy error: %v", err)
+	// Write any pre-buffered packets first (from SPS/PPS recovery), then stream the rest.
+	for _, pkt := range prePkts {
+		if err := muxer.WritePacket(pkt); err != nil {
+			log.Printf("Stream write error (prebuffer): %v", err)
+			break
+		}
+	}
+	for {
+		pkt, err := conn.ReadPacket()
+		if err != nil {
+			if err != io.EOF {
+				log.Printf("Stream read error: %v", err)
+			}
+			break
+		}
+		if err := muxer.WritePacket(pkt); err != nil {
+			log.Printf("Stream write error: %v", err)
+			break
+		}
 	}
 
 	// Cleanup
