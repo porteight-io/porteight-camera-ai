@@ -89,7 +89,9 @@ func main() {
 	r.LoadHTMLGlob(filepath.Join(*webDir, "templates", "*"))
 	// Serve HLS from the configured directory (must be registered before /static to take precedence)
 	r.Static("/static/hls", *hlsDir)
-	r.Static("/static", filepath.Join(*webDir, "static"))
+	// NOTE: Do NOT register a catch-all "/static/*filepath" route alongside "/static/hls/*filepath":
+	// Gin treats this as a conflicting wildcard. If you add non-HLS static assets later,
+	// mount them under a different prefix (e.g. "/assets") or restructure your static tree.
 
 	// Public Routes
 	r.GET("/login", func(c *gin.Context) {
