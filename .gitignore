@@ -1,55 +1,40 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# --- Go build/test artifacts ---
+*.exe
+*.exe~
+*.dll
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-recordings/
-hls_output/
-frames/
+*.dylib
+*.test
+*.out
+*.prof
+coverage.*
 
-# Virtual Environment
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
+# Binaries (this repo currently has a root-level `main` binary/file)
+/main
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Local Go caches (used in CI/sandbox sometimes)
+/.gocache/
+/.gomodcache/
 
-# HLS Output
-hls_output/
-*.m3u8
-*.ts
-*.mp4
+# --- App runtime data (should NOT be committed) ---
+# SQLite DB
+*.db
+*.sqlite
+*.sqlite3
+camera_ai.db
 
-# Logs
-*.log
+# Recordings (mp4 outputs)
+/recordings/
 
-# OS
+# HLS output (generated m3u8/ts/json)
+/web/static/hls/
+
+# --- Environment / secrets ---
+.env
+.env.*
+
+# --- OS / editor ---
 .DS_Store
 Thumbs.db
-
-# Docker
-.dockerignore
-
+.idea/
+.vscode/

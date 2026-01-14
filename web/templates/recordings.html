@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordings - PortEight</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #0f0f11;
+            --bg-tertiary: #18181b;
+            --bg-card: #1c1c1f;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #dc2626;
+            --danger-light: rgba(220, 38, 38, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --recording: #8b5cf6;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border: #27272a;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            padding: 1.25rem 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav {
+            padding: 1rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.15s;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .cameras-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            padding: 0 0.5rem;
+        }
+
+        .camera-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .camera-item:hover {
+            border-color: var(--accent);
+            background: var(--bg-card);
+        }
+
+        .camera-item.selected {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .camera-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .camera-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .camera-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .camera-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.125rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-secondary);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+
+        /* Video Player */
+        .player-section {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .video-container {
+            flex: 1;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            max-height: 400px;
+            position: relative;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .video-badge {
+            background: rgba(0,0,0,0.7);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+        }
+
+        .video-badge.live {
+            background: var(--danger);
+        }
+
+        .player-info {
+            width: 280px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Timeline Section */
+        .timeline-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+
+        .timeline-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .timeline-legend {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* Date Selector */
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-tertiary);
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .date-nav-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .date-nav-btn:hover:not(:disabled) {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .date-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .date-display {
+            min-width: 180px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0 0.5rem;
+        }
+
+        .date-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .date-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 2;
+        }
+        
+        .date-input::-webkit-calendar-picker-indicator {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .date-picker-btn {
+            padding: 0.375rem 0.75rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-family: inherit;
+            font-weight: 500;
+        }
+
+        .date-picker-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Available Dates Pills */
+        .dates-strip {
+            display: flex;
+            gap: 0.375rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .dates-strip::-webkit-scrollbar {
+            display: none;
+        }
+
+        .date-pill {
+            flex-shrink: 0;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+        }
+
+        .date-pill:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .date-pill.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .date-pill .rec-count {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 0.125rem 0.375rem;
+            border-radius: 10px;
+            margin-left: 0.375rem;
+            font-size: 0.65rem;
+        }
+
+        .date-pill.active .rec-count {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Hour Markers */
+        .timeline-hours {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.25rem;
+            padding: 0 2px;
+        }
+
+        .hour-mark {
+            text-align: center;
+            flex: 1;
+        }
+
+        .hour-mark:first-child {
+            text-align: left;
+        }
+
+        .hour-mark:last-child {
+            text-align: right;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .legend-dot.recorded {
+            background: var(--accent);
+        }
+
+        .legend-dot.gap {
+            background: var(--danger-light);
+            border: 1px dashed var(--danger);
+        }
+
+        .legend-dot.live {
+            background: var(--success);
+        }
+
+        /* Timeline Track */
+        .timeline-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100px;
+        }
+
+        .timeline-dates {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-track {
+            height: 60px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            top: 8px;
+            height: calc(100% - 16px);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .timeline-segment.recording {
+            background: var(--accent);
+        }
+
+        .timeline-segment.recording:hover {
+            background: var(--accent-hover);
+            transform: scaleY(1.1);
+        }
+
+        .timeline-segment.recording.active {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .timeline-segment.recording.selected {
+            box-shadow: 0 0 0 2px white;
+        }
+
+        .timeline-gap {
+            position: absolute;
+            top: 8px;
+            height: calc(100% - 16px);
+            background: var(--danger-light);
+            border: 1px dashed var(--danger);
+            border-radius: 4px;
+        }
+
+        .timeline-playhead {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: var(--text-primary);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .timeline-playhead::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: var(--text-primary);
+            border-radius: 50%;
+        }
+
+        /* Clip Selection */
+        .clip-selection {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            border-left: 2px solid white;
+            border-right: 2px solid white;
+            pointer-events: none;
+        }
+
+        .selection-handle {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 32px;
+            background: white;
+            border-radius: 4px;
+            cursor: ew-resize;
+            pointer-events: auto;
+        }
+
+        .selection-handle.start { left: -5px; }
+        .selection-handle.end { right: -5px; }
+
+        /* Time Display */
+        .timeline-time {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .time-group {
+            text-align: center;
+        }
+
+        .time-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .time-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Empty State */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            opacity: 0.5;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span>📹</span> PortEight
+            </div>
+            
+            <nav class="nav">
+                <a href="/" class="nav-item">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    Live Streams
+                </a>
+                <a href="/recordings-page" class="nav-item active">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    Recordings
+                </a>
+            </nav>
+
+            <div class="cameras-section">
+                <div class="section-title">Cameras / Stream Keys</div>
+                <div id="camerasList">
+                    <div style="padding: 1rem; text-align: center; color: var(--text-muted);">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 1rem; border-top: 1px solid var(--border);">
+                <a href="/logout" class="nav-item">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Sign Out
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <header class="header">
+                <h1 id="pageTitle">Recordings</h1>
+                <div id="headerBadge"></div>
+            </header>
+
+            <div class="content">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">📁</div>
+                    <div style="font-size: 1.1rem; color: var(--text-secondary);">Select a camera to view recordings</div>
+                    <div style="font-size: 0.875rem;">Choose from the list on the left</div>
+                </div>
+
+                <!-- Player Section (hidden initially) -->
+                <div id="playerSection" style="display: none;">
+                    <div class="player-section">
+                        <div class="video-container">
+                            <video id="video" controls></video>
+                            <div class="video-overlay">
+                                <div class="video-badge" id="videoBadge">Recording</div>
+                            </div>
+                        </div>
+                        <div class="player-info">
+                            <div class="info-row">
+                                <span class="info-label">Camera</span>
+                                <span class="info-value" id="infoCamera">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Recordings</span>
+                                <span class="info-value" id="infoCount">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Duration</span>
+                                <span class="info-value" id="infoDuration">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Size</span>
+                                <span class="info-value" id="infoSize">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Current Segment</span>
+                                <span class="info-value" id="infoSegment">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Section -->
+                    <div class="timeline-section">
+                        <div class="timeline-header">
+                            <span class="timeline-title">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Recording Timeline
+                            </span>
+                            
+                            <!-- Date Selector -->
+                            <div class="date-selector">
+                                <button class="date-nav-btn" id="prevDayBtn" onclick="navigateDay(-1)" title="Previous day">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </button>
+                                <div class="date-display" id="currentDateDisplay">-</div>
+                                <button class="date-nav-btn" id="nextDayBtn" onclick="navigateDay(1)" title="Next day">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                                <div class="date-input-wrapper">
+                                    <input type="date" class="date-input" id="datePickerInput" onchange="jumpToDate(this.value)">
+                                    <button class="date-picker-btn" onclick="openDatePicker()">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                        </svg>
+                                        Pick Date
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-legend">
+                                <div class="legend-item">
+                                    <div class="legend-dot recorded"></div>
+                                    <span>Recorded</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot gap"></div>
+                                    <span>No Recording</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot live"></div>
+                                    <span>Live</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Available Dates Strip -->
+                        <div class="dates-strip" id="datesStrip"></div>
+
+                        <div class="timeline-container">
+                            <!-- Hour markers for 24h view -->
+                            <div class="timeline-hours" id="timelineHours"></div>
+                            <div class="timeline-track" id="timelineTrack">
+                                <div class="timeline-playhead" id="playhead" style="display: none;"></div>
+                                <div class="clip-selection" id="clipSelection" style="display: none;">
+                                    <div class="selection-handle start" id="handleStart"></div>
+                                    <div class="selection-handle end" id="handleEnd"></div>
+                                </div>
+                            </div>
+                            <div class="timeline-time">
+                                <div class="time-group">
+                                    <div class="time-label">Day Recordings</div>
+                                    <div class="time-value" id="dayRecCount">-</div>
+                                </div>
+                                <div class="time-group">
+                                    <div class="time-label">Selection Start</div>
+                                    <div class="time-value" id="selectionStart">-</div>
+                                </div>
+                                <div class="time-group">
+                                    <div class="time-label">Selection End</div>
+                                    <div class="time-value" id="selectionEnd">-</div>
+                                </div>
+                                <div class="time-group">
+                                    <div class="time-label">Duration</div>
+                                    <div class="time-value" id="selectionDuration">-</div>
+                                </div>
+                                <div class="time-group">
+                                    <div class="time-label">Current Time</div>
+                                    <div class="time-value" id="currentTime">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="controls">
+                            <button class="btn btn-secondary" onclick="setSelectionStart()">Set Start Here</button>
+                            <button class="btn btn-secondary" onclick="setSelectionEnd()">Set End Here</button>
+                            <button class="btn btn-secondary" onclick="resetSelection()">Reset Selection</button>
+                            <button class="btn btn-primary" onclick="downloadClip()">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download Selected Clip
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentKey = null;
+        let recordings = [];
+        let filteredRecordings = []; // Recordings for selected date
+        let availableDates = []; // Dates that have recordings
+        let selectedDate = null; // Currently selected date (Date object, start of day)
+        let isLive = false;
+        let hlsUrl = '';
+        let timelineStart = 0;
+        let timelineEnd = 0;
+        let selectionStartTime = 0;
+        let selectionEndTime = 0;
+        let currentSegment = null;
+        let hls = null;
+        let video = null;
+
+        // Format helpers
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function formatDateTime(ts) {
+            return new Date(ts * 1000).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function formatDateTimeFull(ts) {
+            return new Date(ts * 1000).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        }
+
+        function formatDateShort(date) {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function formatDateFull(date) {
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short',
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function formatDateISO(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function formatDuration(seconds) {
+            if (seconds < 60) return `${Math.floor(seconds)}s`;
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${h}h ${m}m`;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+
+        // Get start of day for a timestamp
+        function getStartOfDay(timestamp) {
+            const date = new Date(timestamp * 1000);
+            date.setHours(0, 0, 0, 0);
+            return date;
+        }
+
+        // Get end of day for a date
+        function getEndOfDay(date) {
+            const end = new Date(date);
+            end.setHours(23, 59, 59, 999);
+            return end;
+        }
+
+        // Check if two dates are the same day
+        function isSameDay(date1, date2) {
+            return date1.getFullYear() === date2.getFullYear() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getDate() === date2.getDate();
+        }
+
+        // Build list of unique dates that have recordings
+        function buildAvailableDates() {
+            const dateSet = new Map();
+            
+            for (const rec of recordings) {
+                const dayStart = getStartOfDay(rec.startTime);
+                const dayKey = formatDateISO(dayStart);
+                
+                if (!dateSet.has(dayKey)) {
+                    dateSet.set(dayKey, { date: dayStart, count: 0, duration: 0 });
+                }
+                
+                dateSet.get(dayKey).count++;
+                dateSet.get(dayKey).duration += rec.duration;
+                
+                // If recording spans midnight, also add the next day
+                const recEndDay = getStartOfDay(rec.endTime);
+                if (!isSameDay(dayStart, recEndDay)) {
+                    const nextKey = formatDateISO(recEndDay);
+                    if (!dateSet.has(nextKey)) {
+                        dateSet.set(nextKey, { date: recEndDay, count: 0, duration: 0 });
+                    }
+                    dateSet.get(nextKey).count++;
+                }
+            }
+            
+            // Convert to sorted array (newest first)
+            availableDates = Array.from(dateSet.values()).sort((a, b) => b.date - a.date);
+            
+            return availableDates;
+        }
+
+        // Filter recordings for selected date
+        function filterRecordingsForDate(date) {
+            const dayStart = Math.floor(date.getTime() / 1000);
+            const dayEnd = Math.floor(getEndOfDay(date).getTime() / 1000);
+            
+            return recordings.filter(rec => {
+                // Include if any part of recording overlaps with this day
+                return rec.endTime > dayStart && rec.startTime < dayEnd;
+            });
+        }
+
+        // Navigate to previous/next day
+        function navigateDay(direction) {
+            if (!selectedDate || availableDates.length === 0) return;
+            
+            const currentIndex = availableDates.findIndex(d => isSameDay(d.date, selectedDate));
+            const newIndex = currentIndex - direction; // Reversed because dates are sorted newest first
+            
+            if (newIndex >= 0 && newIndex < availableDates.length) {
+                selectDate(availableDates[newIndex].date);
+            }
+        }
+
+        // Jump to specific date
+        function jumpToDate(dateString) {
+            if (!dateString) return;
+            
+            const targetDate = new Date(dateString + 'T00:00:00');
+            
+            // Find if we have recordings on this date
+            const matchingDate = availableDates.find(d => isSameDay(d.date, targetDate));
+            
+            if (matchingDate) {
+                selectDate(matchingDate.date);
+            } else {
+                // Find closest date with recordings
+                let closest = availableDates[0];
+                let minDiff = Math.abs(targetDate - closest.date);
+                
+                for (const d of availableDates) {
+                    const diff = Math.abs(targetDate - d.date);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closest = d;
+                    }
+                }
+                
+                if (closest) {
+                    selectDate(closest.date);
+                    showToast('No recordings on selected date. Showing closest date.');
+                }
+            }
+        }
+
+        // Select a specific date
+        function selectDate(date) {
+            selectedDate = date;
+            filteredRecordings = filterRecordingsForDate(date);
+            
+            // Update UI
+            updateDateDisplay();
+            updateDatePills();
+            updateNavButtons();
+            renderTimeline();
+            
+            // Auto-play first recording of the day
+            if (filteredRecordings.length > 0) {
+                const liveRecording = filteredRecordings.find(r => r.isLive);
+                if (liveRecording) {
+                    playSegment(liveRecording);
+                } else {
+                    playSegment(filteredRecordings[0]);
+                }
+            }
+        }
+
+        function updateDateDisplay() {
+            const display = document.getElementById('currentDateDisplay');
+            if (selectedDate) {
+                display.textContent = formatDateFull(selectedDate);
+            } else {
+                display.textContent = '-';
+            }
+            
+            // Update date picker input
+            const picker = document.getElementById('datePickerInput');
+            if (selectedDate) {
+                picker.value = formatDateISO(selectedDate);
+            }
+        }
+
+        function updateNavButtons() {
+            const prevBtn = document.getElementById('prevDayBtn');
+            const nextBtn = document.getElementById('nextDayBtn');
+            
+            if (!selectedDate || availableDates.length === 0) {
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+            
+            const currentIndex = availableDates.findIndex(d => isSameDay(d.date, selectedDate));
+            
+            // Remember: dates are sorted newest first
+            nextBtn.disabled = currentIndex <= 0;
+            prevBtn.disabled = currentIndex >= availableDates.length - 1;
+        }
+
+        function updateDatePills() {
+            const strip = document.getElementById('datesStrip');
+            if (!strip) return;
+            
+            if (availableDates.length === 0) {
+                strip.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">No recordings available</div>';
+                return;
+            }
+            
+            // Show last 14 dates (or all if less)
+            const datesToShow = availableDates.slice(0, 14);
+            
+            let html = '';
+            for (let i = 0; i < datesToShow.length; i++) {
+                const d = datesToShow[i];
+                const isActive = selectedDate && isSameDay(d.date, selectedDate);
+                const isToday = isSameDay(d.date, new Date());
+                
+                html += `
+                    <div class="date-pill ${isActive ? 'active' : ''}" data-date-index="${i}">
+                        ${isToday ? 'Today' : formatDateShort(d.date)}
+                        <span class="rec-count">${d.count}</span>
+                    </div>
+                `;
+            }
+            
+            if (availableDates.length > 14) {
+                html += `
+                    <div class="date-pill" data-date-index="more">
+                        +${availableDates.length - 14} more...
+                    </div>
+                `;
+            }
+            
+            strip.innerHTML = html;
+            
+            // Add click handlers
+            strip.querySelectorAll('.date-pill').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    const idx = pill.dataset.dateIndex;
+                    if (idx === 'more') {
+                        openDatePicker();
+                    } else {
+                        const dateEntry = availableDates[parseInt(idx)];
+                        if (dateEntry) {
+                            selectDate(dateEntry.date);
+                        }
+                    }
+                });
+            });
+            
+            // Scroll to active pill
+            setTimeout(() => {
+                const activePill = strip.querySelector('.date-pill.active');
+                if (activePill) {
+                    activePill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }, 100);
+        }
+        
+        function openDatePicker() {
+            const picker = document.getElementById('datePickerInput');
+            if (picker) {
+                // Try showPicker first (modern browsers)
+                if (typeof picker.showPicker === 'function') {
+                    try {
+                        picker.showPicker();
+                    } catch (e) {
+                        // Fallback: focus and click
+                        picker.focus();
+                        picker.click();
+                    }
+                } else {
+                    // Older browsers: focus to open
+                    picker.focus();
+                    picker.click();
+                }
+            }
+        }
+
+        function renderHourMarkers() {
+            const container = document.getElementById('timelineHours');
+            if (!container) return;
+            
+            // Show hour markers for 24h view (every 3 hours)
+            let html = '';
+            for (let h = 0; h <= 24; h += 3) {
+                const label = h === 0 ? '00:00' : h === 24 ? '24:00' : `${h.toString().padStart(2, '0')}:00`;
+                html += `<span class="hour-mark">${label}</span>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // Load stream keys (cameras)
+        async function loadCameras() {
+            try {
+                const res = await fetch('/api/stream-keys');
+                const data = await res.json();
+                renderCameras(data.keys || []);
+            } catch (e) {
+                console.error('Failed to load cameras:', e);
+            }
+        }
+
+        function renderCameras(keys) {
+            const container = document.getElementById('camerasList');
+            
+            if (keys.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: var(--text-muted);">
+                        No recordings yet
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            for (const key of keys) {
+                const isSelected = currentKey === key.key;
+                html += `
+                    <div class="camera-item ${isSelected ? 'selected' : ''}" onclick="selectCamera('${key.key}')">
+                        <div class="camera-icon">
+                            ${key.isLive ? '🔴' : '📹'}
+                        </div>
+                        <div class="camera-info">
+                            <div class="camera-name">${key.key}</div>
+                            <div class="camera-meta">
+                                ${key.totalRecordings} recording${key.totalRecordings > 1 ? 's' : ''} · ${formatDuration(key.totalDuration)}
+                            </div>
+                        </div>
+                        ${key.isLive ? '<div class="live-dot"></div>' : ''}
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        async function selectCamera(key) {
+            currentKey = key;
+            
+            // Update camera list selection
+            document.querySelectorAll('.camera-item').forEach(el => {
+                el.classList.toggle('selected', el.onclick.toString().includes(key));
+            });
+
+            // Load recordings for this key
+            try {
+                const res = await fetch(`/api/recordings/${key}`);
+                const data = await res.json();
+                recordings = data.recordings || [];
+                isLive = data.isLive || false;
+                hlsUrl = data.hlsUrl || '';
+                
+                // Build available dates and select the most recent one
+                buildAvailableDates();
+                
+                showPlayer();
+                updateInfo();
+                
+                // Select the most recent date (or today if live)
+                if (availableDates.length > 0) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    // Check if today has recordings
+                    const todayEntry = availableDates.find(d => isSameDay(d.date, today));
+                    
+                    if (todayEntry) {
+                        selectDate(todayEntry.date);
+                    } else {
+                        // Select most recent date
+                        selectDate(availableDates[0].date);
+                    }
+                } else {
+                    filteredRecordings = [];
+                    renderTimeline();
+                }
+            } catch (e) {
+                console.error('Failed to load recordings:', e);
+            }
+        }
+
+        function showPlayer() {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('playerSection').style.display = 'block';
+            document.getElementById('pageTitle').textContent = `Recordings: ${currentKey}`;
+            
+            if (isLive) {
+                document.getElementById('headerBadge').innerHTML = '<span style="background: var(--danger); padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem;">🔴 LIVE</span>';
+            } else {
+                document.getElementById('headerBadge').innerHTML = '';
+            }
+        }
+
+        function updateInfo() {
+            document.getElementById('infoCamera').textContent = currentKey;
+            document.getElementById('infoCount').textContent = recordings.length;
+            
+            const totalDuration = recordings.reduce((sum, r) => sum + r.duration, 0);
+            document.getElementById('infoDuration').textContent = formatDuration(totalDuration);
+            
+            const totalSize = recordings.reduce((sum, r) => sum + r.size, 0);
+            document.getElementById('infoSize').textContent = formatSize(totalSize);
+        }
+
+        function renderTimeline() {
+            const track = document.getElementById('timelineTrack');
+            
+            // Render hour markers for 24h view
+            renderHourMarkers();
+            
+            if (!selectedDate || filteredRecordings.length === 0) {
+                track.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">No recordings for this date</div>';
+                return;
+            }
+
+            // Timeline is always 24 hours for the selected date
+            timelineStart = Math.floor(selectedDate.getTime() / 1000);
+            timelineEnd = timelineStart + (24 * 60 * 60); // 24 hours
+            
+            // If viewing today and live, extend to now
+            const now = Math.floor(Date.now() / 1000);
+            if (isLive && now < timelineEnd) {
+                // Keep 24h range but we'll show current time marker
+            }
+            
+            const totalDuration = 24 * 60 * 60; // Always 24 hours
+
+            // Set initial selection to the range that has recordings
+            const firstRec = filteredRecordings[0];
+            const lastRec = filteredRecordings[filteredRecordings.length - 1];
+            selectionStartTime = Math.max(timelineStart, firstRec.startTime);
+            selectionEndTime = Math.min(timelineEnd, lastRec.endTime);
+            updateSelectionDisplay();
+
+            // Render segments and gaps
+            let html = '';
+            
+            // Sort filtered recordings by start time
+            const sortedRecs = [...filteredRecordings].sort((a, b) => a.startTime - b.startTime);
+            
+            for (let i = 0; i < sortedRecs.length; i++) {
+                const rec = sortedRecs[i];
+                
+                // Clamp recording to the 24h window
+                const clampedStart = Math.max(rec.startTime, timelineStart);
+                const clampedEnd = Math.min(rec.endTime, timelineEnd);
+                const clampedDuration = clampedEnd - clampedStart;
+                
+                if (clampedDuration <= 0) continue;
+                
+                const startPercent = ((clampedStart - timelineStart) / totalDuration) * 100;
+                const widthPercent = (clampedDuration / totalDuration) * 100;
+                
+                // Add gap before this segment (if any)
+                if (i > 0) {
+                    const prevEnd = Math.min(sortedRecs[i - 1].endTime, timelineEnd);
+                    const gapDuration = clampedStart - prevEnd;
+                    if (gapDuration > 60) { // Only show gaps > 1 minute
+                        const gapStart = ((Math.max(prevEnd, timelineStart) - timelineStart) / totalDuration) * 100;
+                        const gapWidth = (gapDuration / totalDuration) * 100;
+                        html += `<div class="timeline-gap" style="left: ${gapStart}%; width: ${gapWidth}%;" title="No recording: ${formatDuration(gapDuration)}"></div>`;
+                    }
+                } else if (clampedStart > timelineStart) {
+                    // Gap at the beginning of the day
+                    const gapDuration = clampedStart - timelineStart;
+                    if (gapDuration > 60) {
+                        const gapWidth = (gapDuration / totalDuration) * 100;
+                        html += `<div class="timeline-gap" style="left: 0%; width: ${gapWidth}%;" title="No recording: ${formatDuration(gapDuration)}"></div>`;
+                    }
+                }
+                
+                // Find the original index in filtered recordings for click handler
+                const originalIndex = filteredRecordings.indexOf(rec);
+                
+                // Add segment
+                const segmentClass = rec.isLive ? 'recording active' : 'recording';
+                const startTimeStr = new Date(rec.startTime * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const endTimeStr = new Date(rec.endTime * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                
+                html += `<div class="timeline-segment ${segmentClass}" 
+                    style="left: ${startPercent}%; width: ${Math.max(widthPercent, 0.3)}%;"
+                    data-index="${originalIndex}"
+                    onclick="playSegment(filteredRecordings[${originalIndex}])"
+                    title="${startTimeStr} - ${endTimeStr}\n${rec.filename}\nDuration: ${formatDuration(rec.duration)}">
+                </div>`;
+            }
+            
+            // Add gap at end of day if needed
+            if (sortedRecs.length > 0) {
+                const lastEnd = Math.min(sortedRecs[sortedRecs.length - 1].endTime, timelineEnd);
+                if (lastEnd < timelineEnd && !isLive) {
+                    const gapDuration = timelineEnd - lastEnd;
+                    if (gapDuration > 60) {
+                        const gapStart = ((lastEnd - timelineStart) / totalDuration) * 100;
+                        const gapWidth = (gapDuration / totalDuration) * 100;
+                        html += `<div class="timeline-gap" style="left: ${gapStart}%; width: ${gapWidth}%;" title="No recording: ${formatDuration(gapDuration)}"></div>`;
+                    }
+                }
+            }
+            
+            // Add current time indicator if viewing today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (isSameDay(selectedDate, today)) {
+                const nowPercent = ((now - timelineStart) / totalDuration) * 100;
+                if (nowPercent >= 0 && nowPercent <= 100) {
+                    html += `<div style="position: absolute; left: ${nowPercent}%; top: 0; bottom: 0; width: 2px; background: var(--warning); z-index: 5;" title="Current time"></div>`;
+                }
+            }
+
+            // Add playhead and selection
+            html += '<div class="timeline-playhead" id="playhead" style="display: none;"></div>';
+            html += `<div class="clip-selection" id="clipSelection">
+                <div class="selection-handle start" id="handleStart"></div>
+                <div class="selection-handle end" id="handleEnd"></div>
+            </div>`;
+            
+            track.innerHTML = html;
+            
+            // Setup selection drag handlers
+            setupSelectionHandlers();
+        }
+
+        function playSegment(rec) {
+            currentSegment = rec;
+            video = document.getElementById('video');
+            
+            document.getElementById('infoSegment').textContent = rec.filename;
+            document.getElementById('videoBadge').textContent = rec.isLive ? '🔴 LIVE' : 'Recording';
+            document.getElementById('videoBadge').className = 'video-badge' + (rec.isLive ? ' live' : '');
+            
+            // Highlight selected segment
+            const recIndex = filteredRecordings.indexOf(rec);
+            document.querySelectorAll('.timeline-segment').forEach(el => {
+                el.classList.remove('selected');
+                if (parseInt(el.dataset.index) === recIndex) {
+                    el.classList.add('selected');
+                }
+            });
+
+            if (rec.isLive) {
+                playLive();
+            } else {
+                playRecording(rec);
+            }
+        }
+
+        function playLive() {
+            video = document.getElementById('video');
+            
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    lowLatencyMode: true,
+                    liveSyncDuration: 3,
+                    liveMaxLatencyDuration: 8,
+                    liveDurationInfinity: true,
+                });
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = hlsUrl;
+                video.play();
+            }
+
+            document.getElementById('infoSegment').textContent = 'Live Stream';
+        }
+
+        function playRecording(rec) {
+            video = document.getElementById('video');
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            video.src = `/rec/${rec.key}/${rec.filename}`;
+            video.play();
+
+            // Update playhead position
+            video.ontimeupdate = () => {
+                updatePlayhead();
+                updateCurrentTime();
+            };
+        }
+
+        function updatePlayhead() {
+            if (!currentSegment || !video) return;
+            
+            const playhead = document.getElementById('playhead');
+            if (!playhead) return;
+            
+            const segmentProgress = video.currentTime / video.duration;
+            const segmentStart = currentSegment.startTime;
+            const segmentDuration = currentSegment.duration;
+            const currentTs = segmentStart + (segmentProgress * segmentDuration);
+            
+            const totalDuration = timelineEnd - timelineStart;
+            const percent = ((currentTs - timelineStart) / totalDuration) * 100;
+            
+            playhead.style.left = percent + '%';
+            playhead.style.display = 'block';
+        }
+
+        function updateCurrentTime() {
+            if (!currentSegment || !video) return;
+            
+            const segmentStart = currentSegment.startTime;
+            const segmentProgress = video.currentTime / video.duration;
+            const currentTs = segmentStart + (segmentProgress * currentSegment.duration);
+            
+            document.getElementById('currentTime').textContent = formatDateTimeFull(currentTs);
+        }
+
+        function updateSelectionDisplay() {
+            const totalDuration = timelineEnd - timelineStart;
+            
+            const startPercent = ((selectionStartTime - timelineStart) / totalDuration) * 100;
+            const endPercent = ((selectionEndTime - timelineStart) / totalDuration) * 100;
+            
+            const selection = document.getElementById('clipSelection');
+            if (selection) {
+                selection.style.left = Math.max(0, startPercent) + '%';
+                selection.style.width = Math.min(100, endPercent - startPercent) + '%';
+            }
+            
+            // Show time of day instead of full date
+            const startDate = new Date(selectionStartTime * 1000);
+            const endDate = new Date(selectionEndTime * 1000);
+            
+            document.getElementById('selectionStart').textContent = startDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+            document.getElementById('selectionEnd').textContent = endDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+            document.getElementById('selectionDuration').textContent = formatDuration(selectionEndTime - selectionStartTime);
+            
+            // Update day recordings count
+            const dayRecEl = document.getElementById('dayRecCount');
+            if (dayRecEl) {
+                const dayDuration = filteredRecordings.reduce((sum, r) => sum + r.duration, 0);
+                dayRecEl.textContent = `${filteredRecordings.length} (${formatDuration(dayDuration)})`;
+            }
+        }
+
+        function setupSelectionHandlers() {
+            const track = document.getElementById('timelineTrack');
+            const handleStart = document.getElementById('handleStart');
+            const handleEnd = document.getElementById('handleEnd');
+            
+            let dragging = null;
+
+            function onMouseMove(e) {
+                if (!dragging) return;
+                
+                const rect = track.getBoundingClientRect();
+                let percent = (e.clientX - rect.left) / rect.width;
+                percent = Math.max(0, Math.min(1, percent));
+                
+                const totalDuration = timelineEnd - timelineStart;
+                const time = timelineStart + (percent * totalDuration);
+                
+                if (dragging === 'start') {
+                    selectionStartTime = Math.min(time, selectionEndTime - 60);
+                } else {
+                    selectionEndTime = Math.max(time, selectionStartTime + 60);
+                }
+                
+                updateSelectionDisplay();
+            }
+
+            function onMouseUp() {
+                dragging = null;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+
+            if (handleStart) {
+                handleStart.addEventListener('mousedown', (e) => {
+                    dragging = 'start';
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                    e.stopPropagation();
+                });
+            }
+
+            if (handleEnd) {
+                handleEnd.addEventListener('mousedown', (e) => {
+                    dragging = 'end';
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                    e.stopPropagation();
+                });
+            }
+
+            // Click on track to seek (on non-segment areas)
+            track.addEventListener('click', (e) => {
+                if (e.target.classList.contains('timeline-segment')) return;
+                if (e.target.classList.contains('selection-handle')) return;
+                
+                const rect = track.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                const totalDuration = timelineEnd - timelineStart;
+                const clickTime = timelineStart + (percent * totalDuration);
+                
+                // Find which segment contains this time
+                for (const rec of filteredRecordings) {
+                    if (clickTime >= rec.startTime && clickTime <= rec.endTime) {
+                        playSegment(rec);
+                        // Seek to the specific time within the segment
+                        setTimeout(() => {
+                            const segmentOffset = clickTime - rec.startTime;
+                            if (video && video.duration) {
+                                video.currentTime = (segmentOffset / rec.duration) * video.duration;
+                            }
+                        }, 500);
+                        break;
+                    }
+                }
+            });
+        }
+
+        function setSelectionStart() {
+            if (!currentSegment || !video) return;
+            
+            const segmentProgress = video.currentTime / video.duration;
+            selectionStartTime = currentSegment.startTime + (segmentProgress * currentSegment.duration);
+            
+            if (selectionStartTime >= selectionEndTime) {
+                selectionEndTime = timelineEnd;
+            }
+            
+            updateSelectionDisplay();
+        }
+
+        function setSelectionEnd() {
+            if (!currentSegment || !video) return;
+            
+            const segmentProgress = video.currentTime / video.duration;
+            selectionEndTime = currentSegment.startTime + (segmentProgress * currentSegment.duration);
+            
+            if (selectionEndTime <= selectionStartTime) {
+                selectionStartTime = timelineStart;
+            }
+            
+            updateSelectionDisplay();
+        }
+
+        function resetSelection() {
+            // Reset to the range that has recordings on this day
+            if (filteredRecordings.length > 0) {
+                const sortedRecs = [...filteredRecordings].sort((a, b) => a.startTime - b.startTime);
+                selectionStartTime = Math.max(timelineStart, sortedRecs[0].startTime);
+                selectionEndTime = Math.min(timelineEnd, sortedRecs[sortedRecs.length - 1].endTime);
+            } else {
+                selectionStartTime = timelineStart;
+                selectionEndTime = timelineEnd;
+            }
+            updateSelectionDisplay();
+        }
+
+        function downloadClip() {
+            if (filteredRecordings.length === 0) return;
+            
+            // Find all segments that overlap with selection
+            const selectedSegments = filteredRecordings.filter(rec => {
+                return rec.endTime > selectionStartTime && rec.startTime < selectionEndTime;
+            });
+
+            if (selectedSegments.length === 0) {
+                showToast('No recordings in selected range');
+                return;
+            }
+
+            if (selectedSegments.length === 1) {
+                // Single segment - download with time range
+                const rec = selectedSegments[0];
+                const startOffset = Math.max(0, selectionStartTime - rec.startTime);
+                const endOffset = Math.min(rec.duration, selectionEndTime - rec.startTime);
+                
+                showToast('Starting download...');
+                window.open(`/api/download/${rec.key}/${rec.filename}?start=${startOffset}&end=${endOffset}`, '_blank');
+            } else {
+                // Multiple segments - download each
+                showToast(`Downloading ${selectedSegments.length} clips...`);
+                selectedSegments.forEach((rec, i) => {
+                    setTimeout(() => {
+                        const startOffset = Math.max(0, selectionStartTime - rec.startTime);
+                        const endOffset = Math.min(rec.duration, selectionEndTime - rec.startTime);
+                        window.open(`/api/download/${rec.key}/${rec.filename}?start=${startOffset}&end=${endOffset}`, '_blank');
+                    }, i * 500);
+                });
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Initialize
+        loadCameras();
+        video = document.getElementById('video');
+
+        // Refresh cameras list periodically
+        setInterval(loadCameras, 10000);
+
+        // If key changes from live to not live, refresh
+        setInterval(() => {
+            if (currentKey && isLive) {
+                fetch(`/api/recordings/${currentKey}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.isLive && isLive) {
+                            selectCamera(currentKey);
+                        }
+                    });
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
