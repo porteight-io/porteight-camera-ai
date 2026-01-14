@@ -59,6 +59,67 @@ export HLS_DIR=/workspace/hls
 
 Note: the UI still plays HLS at `/static/hls/...` — the server now maps that URL to whatever `HLS_DIR` is set to.
 
+## Production (AWS Linux)
+
+This app requires **FFmpeg** at runtime, and (by default) **SQLite with CGO enabled** at build time.
+
+### Option A (recommended): native binary + systemd (Amazon Linux 2023 / Ubuntu)
+
+1. Install dependencies on the build machine (Linux):
+
+- Amazon Linux 2023:
+
+```bash
+sudo dnf install -y git gcc sqlite sqlite-devel ffmpeg
+```
+
+- Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git gcc libc6-dev libsqlite3-dev ffmpeg
+```
+
+2. Build the server (CGO enabled):
+
+```bash
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
+```
+
+3. Create an app user and persistent directories:
+
+```bash
+sudo useradd --system --create-home --shell /usr/sbin/nologin porteight || true
+sudo mkdir -p /opt/porteight-camera-ai /var/lib/porteight-camera-ai
+sudo chown -R porteight:porteight /opt/porteight-camera-ai /var/lib/porteight-camera-ai
+```
+
+4. Copy files:
+
+```bash
+sudo cp ./server /opt/porteight-camera-ai/server
+sudo cp -R ./web /opt/porteight-camera-ai/web
+sudo chown -R porteight:porteight /opt/porteight-camera-ai
+```
+
+5. Create a systemd service:
+
+```bash
+sudo cp ./deploy/systemd/porteight-camera-ai.service /etc/systemd/system/porteight-camera-ai.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now porteight-camera-ai
+sudo systemctl status porteight-camera-ai --no-pager
+```
+
+6. Open ports / security groups:
+
+- **RTMP ingest**: TCP **1935**
+- **Web UI/API**: TCP **8080** (or use nginx to expose 80/443)
+
+### Option B: keep CGO disabled (not implemented by default)
+
+If you must build with `CGO_ENABLED=0`, switch the DB driver to a pure-Go sqlite driver (e.g. `github.com/glebarez/sqlite`).
+
 ## How to Stream
 1. Create a **Stream Key** in the Web UI.
 2. Configure your camera or OBS:

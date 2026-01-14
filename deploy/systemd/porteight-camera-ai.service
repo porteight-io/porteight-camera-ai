@@ -1,0 +1,32 @@
+[Unit]
+Description=PortEight Camera AI (RTMP ingest + HLS + recordings)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=porteight
+Group=porteight
+WorkingDirectory=/opt/porteight-camera-ai
+
+# Persist DB + recordings + HLS under /var/lib (change as needed)
+Environment=PERSIST_DIR=/var/lib/porteight-camera-ai
+
+# If you want to override individually:
+# Environment=DB_PATH=/var/lib/porteight-camera-ai/camera_ai.db
+# Environment=RECORDINGS_DIR=/var/lib/porteight-camera-ai/recordings
+# Environment=HLS_DIR=/var/lib/porteight-camera-ai/hls
+
+ExecStart=/opt/porteight-camera-ai/server
+Restart=always
+RestartSec=2
+
+# Hardening (safe defaults; loosen if needed)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/porteight-camera-ai
+
+[Install]
+WantedBy=multi-user.target
