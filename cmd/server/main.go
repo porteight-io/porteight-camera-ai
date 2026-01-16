@@ -129,18 +129,9 @@ func main() {
 	// Initialize Web Server
 	r := gin.Default()
 
-	// CORS to allow dashboard calls (credentials/Bearer)
-	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
-	allowedOrigins := []string{"http://localhost:3000", "https://suvidhi.porteight.io"}
-	if allowedOriginsEnv != "" {
-		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
-	}
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		AllowCredentials: true,
-	}))
+	// IMPORTANT: Do NOT apply CORS globally.
+	// CORS preflight/origin checks can break browser form posts to /login.
+	// We apply CORS only on the /api group further below.
 
 	// Session Store
 	// IMPORTANT: cookie.NewStore uses gorilla/securecookie. The auth key should be 32+ bytes.
@@ -312,7 +303,18 @@ func main() {
 	}
 
 	// API (Bearer token OR session) for external dashboard
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	allowedOrigins := []string{"http://localhost:3000", "https://suvidhi.porteight.io"}
+	if allowedOriginsEnv != "" {
+		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
+	}
 	api := r.Group("/api")
+	api.Use(cors.New(cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 	api.Use(apiAuthMiddleware())
 	{
 		api.GET("/streams", func(c *gin.Context) {
