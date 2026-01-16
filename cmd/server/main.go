@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -12,15 +15,58 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"porteight-camera-ai/internal/db"
 	"porteight-camera-ai/internal/stream"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+func signingSecret() []byte {
+	// Must be set in production. When empty, we fall back to API_BEARER_TOKEN for convenience.
+	// This still should be a long random value.
+	sec := os.Getenv("SIGNING_SECRET")
+	if sec == "" {
+		sec = os.Getenv("API_BEARER_TOKEN")
+	}
+	return []byte(sec)
+}
+
+func signPath(method, path string, exp int64) string {
+	mac := hmac.New(sha256.New, signingSecret())
+	// Canonical form: METHOD\nPATH\nEXP
+	_, _ = mac.Write([]byte(method))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(path))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(strconv.FormatInt(exp, 10)))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func validateSignedRequest(c *gin.Context) bool {
+	expStr := c.Query("exp")
+	sig := c.Query("sig")
+	if expStr == "" || sig == "" {
+		return false
+	}
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil {
+		return false
+	}
+	if time.Now().Unix() > exp {
+		return false
+	}
+	if len(signingSecret()) == 0 {
+		return false
+	}
+	expected := signPath(c.Request.Method, c.Request.URL.Path, exp)
+	return hmac.Equal([]byte(expected), []byte(sig))
+}
 
 func main() {
 	// Storage paths
@@ -83,6 +129,19 @@ func main() {
 	// Initialize Web Server
 	r := gin.Default()
 
+	// CORS to allow dashboard calls (credentials/Bearer)
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	allowedOrigins := []string{"http://localhost:3000", "https://suvidhi.porteight.io"}
+	if allowedOriginsEnv != "" {
+		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
+	}
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
 	// Session Store
 	// IMPORTANT: cookie.NewStore uses gorilla/securecookie. The auth key should be 32+ bytes.
 	// If it's too short, session.Save() can fail and you won't be able to login.
@@ -117,11 +176,8 @@ func main() {
 	r.Use(sessions.Sessions("mysession", store))
 
 	r.LoadHTMLGlob(filepath.Join(*webDir, "templates", "*"))
-	// Serve HLS from the configured directory (must be registered before /static to take precedence)
-	r.Static("/static/hls", *hlsDir)
-	// NOTE: Do NOT register a catch-all "/static/*filepath" route alongside "/static/hls/*filepath":
-	// Gin treats this as a conflicting wildcard. If you add non-HLS static assets later,
-	// mount them under a different prefix (e.g. "/assets") or restructure your static tree.
+	// Serve HLS from the configured directory
+	r.Static("/hls", *hlsDir)
 
 	// Public Routes
 	r.GET("/login", func(c *gin.Context) {
@@ -155,19 +211,70 @@ func main() {
 		c.Redirect(http.StatusFound, "/login")
 	})
 
-	// Serve recordings (protected if inside protected group, but static middleware runs before)
-	// To protect static files properly, we'd need a custom handler or middleware check.
-	// For simplicity, let's just protect the dashboard/API.
+	// Signed public media endpoints (no cookies/headers required).
+	// Used by external dashboards where <video> cannot attach Authorization headers.
+	r.GET("/public/rec/:key/:filename", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		key := c.Param("key")
+		filename := filepath.Base(c.Param("filename"))
+		c.File(filepath.Join(*recDir, key, filename))
+	})
+	r.GET("/public/download/:key/:filename", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		key := c.Param("key")
+		filename := filepath.Base(c.Param("filename"))
+		startTimeStr := c.DefaultQuery("start", "0")
+		endTimeStr := c.Query("end")
+
+		recordingPath := filepath.Join(rtmpSrv.GetRecDir(), key, filename)
+		if _, err := os.Stat(recordingPath); os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Recording not found"})
+			return
+		}
+
+		outputName := fmt.Sprintf("%s_clip_%s.mp4", key, startTimeStr)
+		c.Header("Content-Disposition", "attachment; filename="+outputName)
+		c.Header("Content-Type", "video/mp4")
+
+		args := []string{"-y", "-ss", startTimeStr}
+		if endTimeStr != "" {
+			args = append(args, "-to", endTimeStr)
+		}
+		args = append(args,
+			"-i", recordingPath,
+			"-c", "copy",
+			"-f", "mp4",
+			"-movflags", "frag_keyframe+empty_moov",
+			"pipe:1",
+		)
+
+		cmd := exec.Command("ffmpeg", args...)
+		cmd.Stdout = c.Writer
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Start(); err != nil {
+			log.Println("Download error:", err)
+			return
+		}
+		_ = cmd.Wait()
+	})
+
+	// Serve recordings (legacy static, keep for admin UI access)
 	r.Static("/recordings", *recDir)
 
-	// Protected Routes
+	// Protected Routes (admin UI)
 	authorized := r.Group("/")
 	authorized.Use(authMiddleware())
 	{
 		authorized.GET("/", func(c *gin.Context) {
 			activeStreams := rtmpSrv.GetActiveStreams()
 			keys, _ := db.GetAllStreamKeys()
-			// Get the host from the request (for correct RTMP URL display)
 			host := c.Request.Host
 			if idx := strings.LastIndex(host, ":"); idx != -1 {
 				host = host[:idx]
@@ -193,9 +300,7 @@ func main() {
 
 		authorized.GET("/player/:key", func(c *gin.Context) {
 			key := c.Param("key")
-			// Get the host from the request (for correct RTMP URL display)
 			host := c.Request.Host
-			// Strip port if present to get just the hostname/IP
 			if idx := strings.LastIndex(host, ":"); idx != -1 {
 				host = host[:idx]
 			}
@@ -204,102 +309,108 @@ func main() {
 				"Host": host,
 			})
 		})
+	}
 
-		// API
-		api := authorized.Group("/api")
-		{
-			api.GET("/streams", func(c *gin.Context) {
-				activeStreams := rtmpSrv.GetActiveStreams()
-				c.JSON(http.StatusOK, gin.H{"streams": activeStreams})
-			})
+	// API (Bearer token OR session) for external dashboard
+	api := r.Group("/api")
+	api.Use(apiAuthMiddleware())
+	{
+		api.GET("/streams", func(c *gin.Context) {
+			activeStreams := rtmpSrv.GetActiveStreams()
+			c.JSON(http.StatusOK, gin.H{"streams": activeStreams})
+		})
 
-			api.POST("/keys", func(c *gin.Context) {
-				var form struct {
-					Key         string `json:"key"`
-					Description string `json:"description"`
+		api.POST("/keys", func(c *gin.Context) {
+			var form struct {
+				Key         string `json:"key"`
+				Description string `json:"description"`
+			}
+			if err := c.BindJSON(&form); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+
+			key := form.Key
+			if key == "" {
+				key = uuid.New().String()
+			}
+
+			sk, err := db.CreateStreamKey(key, form.Description)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, sk)
+		})
+
+		api.GET("/stream-keys", func(c *gin.Context) {
+			keys := rtmpSrv.GetStreamKeys()
+			c.JSON(http.StatusOK, gin.H{"keys": keys})
+		})
+
+		api.GET("/recordings/:key", func(c *gin.Context) {
+			key := c.Param("key")
+			recordings := rtmpSrv.GetRecordings(key)
+			activeStreams := rtmpSrv.GetActiveStreams()
+			isLive := false
+			for _, s := range activeStreams {
+				if s == key {
+					isLive = true
+					break
 				}
-				if err := c.BindJSON(&form); err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return
-				}
-
-				key := form.Key
-				if key == "" {
-					key = uuid.New().String()
-				}
-
-				sk, err := db.CreateStreamKey(key, form.Description)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					return
-				}
-				c.JSON(http.StatusOK, sk)
-			})
-
-			// Get all stream keys with summaries
-			api.GET("/stream-keys", func(c *gin.Context) {
-				keys := rtmpSrv.GetStreamKeys()
-				c.JSON(http.StatusOK, gin.H{"keys": keys})
-			})
-
-			// Get all recordings for a stream key
-			api.GET("/recordings/:key", func(c *gin.Context) {
-				key := c.Param("key")
-				recordings := rtmpSrv.GetRecordings(key)
-
-				// Check if this key is currently live
-				activeStreams := rtmpSrv.GetActiveStreams()
-				isLive := false
-				for _, s := range activeStreams {
-					if s == key {
-						isLive = true
-						break
-					}
-				}
-
-				c.JSON(http.StatusOK, gin.H{
-					"recordings": recordings,
-					"isLive":     isLive,
-					"hlsUrl":     fmt.Sprintf("/static/hls/%s/index.m3u8", key),
+			}
+			// Attach signed playback/download URLs for dashboard video/download usage.
+			exp := time.Now().Add(15 * time.Minute).Unix()
+			enriched := make([]gin.H, 0, len(recordings))
+			for _, r := range recordings {
+				recPath := fmt.Sprintf("/public/rec/%s/%s", r.Key, r.Filename)
+				dlPath := fmt.Sprintf("/public/download/%s/%s", r.Key, r.Filename)
+				enriched = append(enriched, gin.H{
+					"key":         r.Key,
+					"filename":    r.Filename,
+					"path":        r.Path,
+					"startTime":   r.StartTime,
+					"endTime":     r.EndTime,
+					"size":        r.Size,
+					"duration":    r.Duration,
+					"isLive":      r.IsLive,
+					"playbackUrl": fmt.Sprintf("%s?exp=%d&sig=%s", recPath, exp, signPath("GET", recPath, exp)),
+					"downloadUrl": fmt.Sprintf("%s?exp=%d&sig=%s", dlPath, exp, signPath("GET", dlPath, exp)),
 				})
-			})
+			}
 
-			// Get all recordings grouped by key
-			api.GET("/recordings", func(c *gin.Context) {
-				allRecordings := rtmpSrv.GetAllRecordings()
-				c.JSON(http.StatusOK, gin.H{"recordings": allRecordings})
+			c.JSON(http.StatusOK, gin.H{
+				"recordings": enriched,
+				"isLive":     isLive,
+				"hlsUrl":     fmt.Sprintf("/hls/%s/index.m3u8", key),
 			})
-		}
+		})
 
-		// Download clip from recording
-		authorized.GET("/api/download/:key/:filename", func(c *gin.Context) {
+		api.GET("/recordings", func(c *gin.Context) {
+			allRecordings := rtmpSrv.GetAllRecordings()
+			c.JSON(http.StatusOK, gin.H{"recordings": allRecordings})
+		})
+
+		api.GET("/download/:key/:filename", func(c *gin.Context) {
 			key := c.Param("key")
 			filename := c.Param("filename")
 			startTimeStr := c.DefaultQuery("start", "0")
 			endTimeStr := c.Query("end")
 
-			// Source recording path
 			recordingPath := filepath.Join(rtmpSrv.GetRecDir(), key, filename)
-
-			// Check if file exists
 			if _, err := os.Stat(recordingPath); os.IsNotExist(err) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Recording not found"})
 				return
 			}
 
-			// Output filename
 			outputName := fmt.Sprintf("%s_clip_%s.mp4", key, startTimeStr)
 			c.Header("Content-Disposition", "attachment; filename="+outputName)
 			c.Header("Content-Type", "video/mp4")
 
-			// Build ffmpeg args
 			args := []string{"-y", "-ss", startTimeStr}
-
-			// Add duration if end time specified
 			if endTimeStr != "" {
 				args = append(args, "-to", endTimeStr)
 			}
-
 			args = append(args,
 				"-i", recordingPath,
 				"-c", "copy",
@@ -319,8 +430,7 @@ func main() {
 			cmd.Wait()
 		})
 
-		// Serve recording files directly
-		authorized.Static("/rec", *recDir)
+		api.Static("/rec", *recDir)
 	}
 
 	// Run
@@ -347,5 +457,30 @@ func authMiddleware() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// apiAuthMiddleware allows either a valid Bearer token or an authenticated session.
+func apiAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiToken := os.Getenv("API_BEARER_TOKEN")
+		authHeader := c.GetHeader("Authorization")
+
+		if apiToken != "" && strings.HasPrefix(authHeader, "Bearer ") {
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			if token == apiToken {
+				c.Next()
+				return
+			}
+		}
+
+		// Fallback to session auth (admin cookies)
+		session := sessions.Default(c)
+		if session.Get("user_id") != nil {
+			c.Next()
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 	}
 }

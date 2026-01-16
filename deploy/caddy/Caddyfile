@@ -1,0 +1,41 @@
+{
+	# Global options
+	# - Set this so Caddy can obtain/renew certs.
+	# - Optional: override via environment in your systemd unit.
+	email sanya.jain@porteight.io
+}
+
+# ----------------------------
+# PortEight Camera AI (HTTPS)
+# ----------------------------
+live.porteight.io {
+	# Option A (recommended): automatic HTTPS via Let's Encrypt.
+	# Caddy will provision/renew certs automatically when CAMERA_AI_DOMAIN is a real DNS name.
+
+	# Option B: use an existing cert/key (uncomment and set paths).
+	# tls /etc/ssl/porteight/fullchain.pem /etc/ssl/porteight/privkey.pem
+
+	encode zstd gzip
+
+	# Useful security headers (tune CSP as needed)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+
+	# Allow large payloads if needed in future (uploads, etc.)
+	request_body {
+		max_size 50MB
+	}
+
+	# Reverse proxy to the Go web server (Gin) running locally on :8080
+	reverse_proxy 127.0.0.1:8080 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
