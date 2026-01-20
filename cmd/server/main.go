@@ -25,7 +25,6 @@ import (
 	"porteight-camera-ai/internal/storage"
 	"porteight-camera-ai/internal/stream"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -340,9 +339,24 @@ func main() {
 	// Initialize Web Server
 	r := gin.Default()
 
-	// IMPORTANT: Do NOT apply CORS globally.
-	// CORS preflight/origin checks can break browser form posts to /login.
-	// We apply CORS only on the /api group further below.
+	// CORS middleware for cross-origin requests from frontend
+	r.Use(func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, Accept")
+			c.Header("Access-Control-Max-Age", "43200")
+		}
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
 
 	// Session Store
 	// IMPORTANT: cookie.NewStore uses gorilla/securecookie. The auth key should be 32+ bytes.
@@ -528,18 +542,7 @@ func main() {
 	}
 
 	// API (Bearer token OR session) for external dashboard
-	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
-	allowedOrigins := []string{"http://localhost:3000", "https://suvidhi.porteight.io"}
-	if allowedOriginsEnv != "" {
-		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
-	}
 	api := r.Group("/api")
-	api.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		AllowCredentials: true,
-	}))
 	api.Use(apiAuthMiddleware())
 	{
 		parseHLSDurationFromM3U8 := func(m3u8 string) float64 {
@@ -650,19 +653,18 @@ func main() {
 			// If S3 is configured, derive the sidebar keys list from DB-indexed sessions instead.
 			if s3Store != nil {
 				type aggRow struct {
-					StreamKey       string  `gorm:"column:stream_key"`
-					TotalRecordings int64   `gorm:"column:total_recordings"`
-					TotalDuration   float64 `gorm:"column:total_duration"`
-					TotalSize       int64   `gorm:"column:total_size"`
-					EarliestUnix    int64   `gorm:"column:earliest_unix"`
-					LatestUnix      int64   `gorm:"column:latest_unix"`
+					StreamKey       string    `gorm:"column:stream_key"`
+					TotalRecordings int64     `gorm:"column:total_recordings"`
+					TotalDuration   float64   `gorm:"column:total_duration"`
+					TotalSize       int64     `gorm:"column:total_size"`
+					Earliest        time.Time `gorm:"column:earliest"`
+					Latest          time.Time `gorm:"column:latest"`
 				}
 				var rows []aggRow
 				_ = db.DB.Model(&db.HLSRecordingSession{}).
-					// SQLite stores time as TEXT by default; use strftime('%s', ...) to get unix seconds.
-					Select("stream_key as stream_key, count(*) as total_recordings, coalesce(sum(duration),0) as total_duration, coalesce(sum(size_bytes),0) as total_size, coalesce(min(strftime('%s', start_time)),0) as earliest_unix, coalesce(max(strftime('%s', end_time)),0) as latest_unix").
+					Select("stream_key as stream_key, count(*) as total_recordings, sum(duration) as total_duration, sum(size_bytes) as total_size, min(start_time) as earliest, max(end_time) as latest").
 					Group("stream_key").
-					Order("earliest_unix asc").
+					Order("earliest asc").
 					Scan(&rows).Error
 
 				keys := make([]gin.H, 0, len(rows))
@@ -674,8 +676,8 @@ func main() {
 						"totalDuration":   r.TotalDuration,
 						"totalSize":       r.TotalSize,
 						"isLive":          isLive,
-						"earliestRecord":  r.EarliestUnix,
-						"latestRecord":    r.LatestUnix,
+						"earliestRecord":  r.Earliest.Unix(),
+						"latestRecord":    r.Latest.Unix(),
 					})
 				}
 				c.JSON(http.StatusOK, gin.H{"keys": keys})
