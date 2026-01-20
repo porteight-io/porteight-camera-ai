@@ -33,6 +33,31 @@ type Recording struct {
 	Duration  int64     `json:"duration"` // in seconds
 }
 
+// HLSRecordingSession indexes a completed (or in-progress) archived HLS session.
+// This allows listing/serving recordings even when files live in S3.
+type HLSRecordingSession struct {
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	StreamKey string `gorm:"index:idx_stream_session,unique" json:"streamKey"`
+	Session   string `gorm:"index:idx_stream_session,unique" json:"session"` // folder name: 2006-01-02_15-04-05
+
+	// Storage
+	Storage   string `json:"storage"` // "local" | "s3"
+	LocalDir  string `json:"localDir"`
+	S3Bucket  string `json:"s3Bucket"`
+	S3Prefix  string `json:"s3Prefix"` // e.g. recordings/<key>/<session>/
+	Uploaded  bool   `json:"uploaded"`
+	UploadErr string `json:"uploadErr"`
+
+	// Metadata
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
+	Duration  float64   `json:"duration"` // seconds
+	SizeBytes int64     `json:"sizeBytes"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 func Init(path string) error {
 	var err error
 	DB, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
@@ -40,12 +65,43 @@ func Init(path string) error {
 		return err
 	}
 
-	err = DB.AutoMigrate(&User{}, &StreamKey{}, &Recording{})
+	err = DB.AutoMigrate(&User{}, &StreamKey{}, &Recording{}, &HLSRecordingSession{})
 	if err != nil {
 		return err
 	}
 
 	return seedAdminUser()
+}
+
+func UpsertHLSRecordingSession(s *HLSRecordingSession) error {
+	if s == nil {
+		return errors.New("nil session")
+	}
+	var existing HLSRecordingSession
+	err := DB.Where("stream_key = ? AND session = ?", s.StreamKey, s.Session).First(&existing).Error
+	if err == nil {
+		s.ID = existing.ID
+		return DB.Save(s).Error
+	}
+	return DB.Create(s).Error
+}
+
+func MarkHLSRecordingUploaded(streamKey, session string, uploaded bool, uploadErr string, storage string, s3Bucket string, s3Prefix string) error {
+	return DB.Model(&HLSRecordingSession{}).
+		Where("stream_key = ? AND session = ?", streamKey, session).
+		Updates(map[string]any{
+			"uploaded":   uploaded,
+			"upload_err": uploadErr,
+			"storage":    storage,
+			"s3_bucket":  s3Bucket,
+			"s3_prefix":  s3Prefix,
+		}).Error
+}
+
+func ListHLSRecordingSessions(streamKey string) ([]HLSRecordingSession, error) {
+	var out []HLSRecordingSession
+	err := DB.Where("stream_key = ?", streamKey).Order("start_time asc").Find(&out).Error
+	return out, err
 }
 
 func seedAdminUser() error {

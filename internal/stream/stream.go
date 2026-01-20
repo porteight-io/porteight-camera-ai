@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,37 +24,37 @@ import (
 )
 
 type Server struct {
-	rtmpServer *rtmp.Server
-	addr       string
-	hlsDir     string
-	recDir     string
-	streams    map[string]*StreamSession
-	mu         sync.RWMutex
+	rtmpServer          *rtmp.Server
+	addr                string
+	hlsDir              string
+	recDir              string
+	streams             map[string]*StreamSession
+	mu                  sync.RWMutex
+	onRecordingStart    func(key string, session string, localDir string)
+	onRecordingComplete func(key string, session string, localDir string)
 }
 
 type StreamSession struct {
-	Key           string
-	Active        bool
-	StartTime     time.Time
-	LiveCmd       *exec.Cmd
-	RecordCmd     *exec.Cmd
-	Stdin         io.WriteCloser
-	RecordingFile string
+	Key        string
+	Active     bool
+	StartTime  time.Time
+	LiveCmd    *exec.Cmd
+	ArchiveCmd *exec.Cmd
+	Stdin      io.WriteCloser
 }
 
 // StreamMetadata is written to a JSON file for the player to read
 type StreamMetadata struct {
-	Key           string `json:"key"`
-	StartTime     int64  `json:"startTime"`
-	Active        bool   `json:"active"`
-	RecordingFile string `json:"recordingFile,omitempty"`
+	Key       string `json:"key"`
+	StartTime int64  `json:"startTime"`
+	Active    bool   `json:"active"`
 }
 
 // Recording represents a saved recording
 type Recording struct {
 	Key       string  `json:"key"`
-	Filename  string  `json:"filename"`
-	Path      string  `json:"path"`
+	Filename  string  `json:"filename"`  // session folder name (timestamp)
+	Playlist  string  `json:"playlist"`  // URL path (/static/hls/<key>/recordings/<session>/index.m3u8)
 	StartTime int64   `json:"startTime"` // Unix timestamp
 	EndTime   int64   `json:"endTime"`   // Unix timestamp
 	Size      int64   `json:"size"`
@@ -87,6 +88,14 @@ func NewServer(addr, hlsDir, recDir string) *Server {
 	}
 
 	return s
+}
+
+func (s *Server) SetOnRecordingComplete(fn func(key string, session string, localDir string)) {
+	s.onRecordingComplete = fn
+}
+
+func (s *Server) SetOnRecordingStart(fn func(key string, session string, localDir string)) {
+	s.onRecordingStart = fn
 }
 
 func (s *Server) Start() error {
@@ -173,23 +182,36 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 
 	// Setup directories
 	liveDir := filepath.Join(s.hlsDir, key)
-	keyRecDir := filepath.Join(s.recDir, key)
+	recordingsRoot := filepath.Join(liveDir, "recordings")
+	sessionName := startTime.Format("2006-01-02_15-04-05")
+	// Full HLS archive directory (this *is* the recording)
+	archiveDir := filepath.Join(recordingsRoot, sessionName)
 
-	// Clear old LIVE HLS data
-	os.RemoveAll(liveDir)
+	// Ensure base dirs exist
 	os.MkdirAll(liveDir, 0755)
-	os.MkdirAll(keyRecDir, 0755)
+	os.MkdirAll(recordingsRoot, 0755)
+	os.MkdirAll(archiveDir, 0755)
 
-	// Recording filename with timestamp
-	recordingFilename := fmt.Sprintf("%s.mp4", startTime.Format("2006-01-02_15-04-05"))
-	recordingPath := filepath.Join(keyRecDir, recordingFilename)
+	// Clear old LIVE HLS data (but keep recordings/)
+	if entries, err := os.ReadDir(liveDir); err == nil {
+		for _, e := range entries {
+			if e.Name() == "recordings" {
+				continue
+			}
+			_ = os.RemoveAll(filepath.Join(liveDir, e.Name()))
+		}
+	}
+
+	if s.onRecordingStart != nil {
+		// Start hooks should not block ingest.
+		go s.onRecordingStart(key, sessionName, archiveDir)
+	}
 
 	// Write stream metadata
 	metadata := StreamMetadata{
-		Key:           key,
-		StartTime:     startTime.Unix(),
-		Active:        true,
-		RecordingFile: recordingFilename,
+		Key:       key,
+		StartTime: startTime.Unix(),
+		Active:    true,
 	}
 	s.writeStreamMetadata(liveDir, metadata)
 
@@ -280,41 +302,35 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 		return
 	}
 
-	// FFmpeg for Recording (re-encode to reduce size)
-	// Switch to H.265 for better compression vs. H.264.
-	// Adjust CRF/preset/scale to tune quality vs. CPU usage.
-	recordArgs := []string{
+	// FFmpeg for FULL HLS ARCHIVE (keeps all segments until disconnect)
+	archiveArgs := []string{
 		"-y",
 		"-analyzeduration", "20M",
 		"-probesize", "20M",
 		"-fflags", "+igndts+genpts",
 		"-use_wallclock_as_timestamps", "1",
 		"-f", "flv", "-i", "pipe:0",
-		// Video: H.265 (libx265) for higher compression efficiency
-		"-c:v", "libx265",
-		"-preset", "veryfast", // faster encode, larger files; change to "slow" for smaller
-		"-crf", "28", // lower=better quality/larger size; x265 default ~28
-		"-maxrate", "2M", // cap bitrate to avoid large spikes
-		"-bufsize", "4M",
-		"-vf", "scale=-2:720", // downscale to 720p while keeping aspect (-2 keeps width divisible by 2)
-		"-tag:v", "hvc1", // improve MP4 compatibility on Apple devices
-		// Audio: transcode to AAC at a modest bitrate
-		"-c:a", "aac",
-		"-b:a", "96k",
-		"-movflags", "+faststart",
-		recordingPath,
+		"-c:v", "copy", "-c:a", "copy",
+		"-f", "hls",
+		"-hls_time", "2",
+		"-hls_list_size", "0",
+		"-hls_playlist_type", "event",
+		"-hls_flags", "independent_segments",
+		"-hls_segment_type", "mpegts",
+		"-hls_segment_filename", filepath.Join(archiveDir, "seg_%06d.ts"),
+		filepath.Join(archiveDir, "index.m3u8"),
 	}
-	recordCmd := exec.Command("ffmpeg", recordArgs...)
-	recordStdin, err := recordCmd.StdinPipe()
+	archiveCmd := exec.Command("ffmpeg", archiveArgs...)
+	archiveStdin, err := archiveCmd.StdinPipe()
 	if err != nil {
-		log.Println("Failed to create record ffmpeg stdin:", err)
+		log.Println("Failed to create archive ffmpeg stdin:", err)
 		liveCmd.Process.Kill()
 		conn.Close()
 		return
 	}
-	recordCmd.Stderr = os.Stderr
-	if err := recordCmd.Start(); err != nil {
-		log.Println("Failed to start record ffmpeg:", err)
+	archiveCmd.Stderr = os.Stderr
+	if err := archiveCmd.Start(); err != nil {
+		log.Println("Failed to start archive ffmpeg:", err)
 		liveCmd.Process.Kill()
 		conn.Close()
 		return
@@ -322,19 +338,18 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 
 	// Record session
 	session := &StreamSession{
-		Key:           key,
-		Active:        true,
-		StartTime:     startTime,
-		LiveCmd:       liveCmd,
-		RecordCmd:     recordCmd,
-		Stdin:         pipeWriter,
-		RecordingFile: recordingFilename,
+		Key:        key,
+		Active:     true,
+		StartTime:  startTime,
+		LiveCmd:    liveCmd,
+		ArchiveCmd: archiveCmd,
+		Stdin:      pipeWriter,
 	}
 	s.mu.Lock()
 	s.streams[key] = session
 	s.mu.Unlock()
 
-	// Tee goroutine: read from pipe and write to both FFmpeg processes
+	// Tee goroutine: read from pipe and write to both FFmpeg processes (live + archive)
 	go func() {
 		buf := make([]byte, 32*1024)
 		for {
@@ -344,11 +359,11 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 			}
 			if n > 0 {
 				liveStdin.Write(buf[:n])
-				recordStdin.Write(buf[:n])
+				archiveStdin.Write(buf[:n])
 			}
 		}
 		liveStdin.Close()
-		recordStdin.Close()
+		archiveStdin.Close()
 	}()
 
 	// Create Muxer to pipe to our tee writer
@@ -357,7 +372,7 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	if err != nil {
 		log.Println("Failed to write header:", err)
 		liveCmd.Process.Kill()
-		recordCmd.Process.Kill()
+		archiveCmd.Process.Kill()
 		conn.Close()
 		return
 	}
@@ -388,7 +403,7 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	pipeWriter.Close()
 
 	liveCmd.Wait()
-	recordCmd.Wait()
+	archiveCmd.Wait()
 
 	// Mark stream as inactive
 	metadata.Active = false
@@ -398,7 +413,12 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	delete(s.streams, key)
 	s.mu.Unlock()
 
-	log.Printf("Recording saved: %s", recordingPath)
+	log.Printf("HLS recording saved: %s", archiveDir)
+
+	if s.onRecordingComplete != nil {
+		// Fire-and-forget (do not block RTMP handler shutdown)
+		go s.onRecordingComplete(key, sessionName, archiveDir)
+	}
 }
 
 func (s *Server) writeStreamMetadata(keyDir string, meta StreamMetadata) {
@@ -477,6 +497,35 @@ func getVideoDuration(filepath string) float64 {
 	return d
 }
 
+// getHLSDurationSeconds parses an HLS playlist and sums EXTINF durations.
+// This is more reliable than ffprobe for in-progress EVENT playlists.
+func getHLSDurationSeconds(m3u8Path string) float64 {
+	b, err := os.ReadFile(m3u8Path)
+	if err != nil {
+		return 0
+	}
+	var total float64
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "#EXTINF:") {
+			continue
+		}
+		rest := strings.TrimPrefix(line, "#EXTINF:")
+		// EXTINF:<duration>,[title]
+		if idx := strings.Index(rest, ","); idx != -1 {
+			rest = rest[:idx]
+		}
+		rest = strings.TrimSpace(rest)
+		if rest == "" {
+			continue
+		}
+		if v, err := strconv.ParseFloat(rest, 64); err == nil && v > 0 {
+			total += v
+		}
+	}
+	return total
+}
+
 // IsStreamLive checks if a stream is currently live (RTMP or HLS updating)
 func (s *Server) IsStreamLive(key string) bool {
 	// Check RTMP sessions
@@ -502,82 +551,95 @@ func (s *Server) IsStreamLive(key string) bool {
 // GetRecordings returns all recordings for a stream key
 func (s *Server) GetRecordings(key string) []Recording {
 	recordings := []Recording{}
-	keyRecDir := filepath.Join(s.recDir, key)
+	keyRecDir := filepath.Join(s.hlsDir, key, "recordings")
 
 	// Check if directory exists
 	if _, err := os.Stat(keyRecDir); os.IsNotExist(err) {
 		return recordings
 	}
 
-	files, err := os.ReadDir(keyRecDir)
+	dirs, err := os.ReadDir(keyRecDir)
 	if err != nil {
 		log.Printf("Failed to read recordings dir: %v", err)
 		return recordings
 	}
 
-	// Check if there's an active stream for this key (RTMP or HLS)
-	isLive := s.IsStreamLive(key)
+	// If stream is currently live, the most recently updated recording session is considered "live".
+	isKeyLive := s.IsStreamLive(key)
+	var mostRecentSession string
+	var mostRecentMod time.Time
 
-	// Get RTMP session info if available
-	s.mu.RLock()
-	activeSession, hasRTMPSession := s.streams[key]
-	s.mu.RUnlock()
-
-	for _, f := range files {
-		if f.IsDir() || !strings.HasSuffix(f.Name(), ".mp4") {
+	for _, d := range dirs {
+		if !d.IsDir() {
 			continue
 		}
 
-		info, err := f.Info()
+		sessionName := d.Name()
+		playlistPath := filepath.Join(keyRecDir, sessionName, "index.m3u8")
+		info, err := os.Stat(playlistPath)
 		if err != nil {
 			continue
 		}
 
-		// Parse timestamp from filename (format: 2006-01-02_15-04-05.mp4)
-		name := strings.TrimSuffix(f.Name(), ".mp4")
-		startTime, err := time.ParseInLocation("2006-01-02_15-04-05", name, time.Local)
+		// Parse timestamp from session folder name (format: 2006-01-02_15-04-05)
+		startTime, err := time.ParseInLocation("2006-01-02_15-04-05", sessionName, time.Local)
 		if err != nil {
 			startTime = info.ModTime()
 		}
 
-		// Check if this specific recording is the live one
-		isThisLive := false
-		if isLive {
-			if hasRTMPSession && activeSession.RecordingFile == f.Name() {
-				isThisLive = true
-			} else if !hasRTMPSession {
-				// For non-RTMP streams, mark the most recent recording as live if being updated
-				// Check if this file is being actively written (modified recently)
-				if time.Since(info.ModTime()) < 30*time.Second {
-					isThisLive = true
+		// Get duration from playlist by parsing EXTINF (works while still recording).
+		duration := getHLSDurationSeconds(playlistPath)
+		endTime := startTime.Unix() + int64(duration)
+		if duration <= 0 {
+			// Fallback to ffprobe for completed playlists that might omit EXTINF (rare)
+			duration = getVideoDuration(playlistPath)
+			endTime = startTime.Unix() + int64(duration)
+		}
+
+		// Track most recently updated session (for IsLive)
+		if info.ModTime().After(mostRecentMod) {
+			mostRecentMod = info.ModTime()
+			mostRecentSession = sessionName
+		}
+
+		// Estimate size by summing files in session directory
+		var totalSize int64
+		if entries, err := os.ReadDir(filepath.Join(keyRecDir, sessionName)); err == nil {
+			for _, e := range entries {
+				if e.IsDir() {
+					continue
+				}
+				if fi, err := e.Info(); err == nil {
+					totalSize += fi.Size()
 				}
 			}
 		}
 
-		// Get duration (skip for live recordings as file is still being written)
-		var duration float64
-		var endTime int64
-
-		if isThisLive {
-			// For live, calculate duration from start time to now
-			duration = time.Since(startTime).Seconds()
-			endTime = time.Now().Unix()
-		} else {
-			// Get actual duration from file
-			duration = getVideoDuration(filepath.Join(keyRecDir, f.Name()))
-			endTime = startTime.Unix() + int64(duration)
-		}
-
 		recordings = append(recordings, Recording{
 			Key:       key,
-			Filename:  f.Name(),
-			Path:      filepath.Join(keyRecDir, f.Name()),
+			Filename:  sessionName,
+			Playlist:  fmt.Sprintf("/static/hls/%s/recordings/%s/index.m3u8", key, sessionName),
 			StartTime: startTime.Unix(),
 			EndTime:   endTime,
-			Size:      info.Size(),
+			Size:      totalSize,
 			Duration:  duration,
-			IsLive:    isThisLive,
+			IsLive:    false,
 		})
+	}
+
+	// Mark the most recently updated session as live if the key is live and playlist is updating.
+	if isKeyLive && mostRecentSession != "" && time.Since(mostRecentMod) < 30*time.Second {
+		for i := range recordings {
+			if recordings[i].Filename == mostRecentSession {
+				recordings[i].IsLive = true
+				// Also extend endTime to "now" so it displays even if EXTINF hasn't caught up
+				recordings[i].EndTime = time.Now().Unix()
+				if recordings[i].EndTime > recordings[i].StartTime {
+					recordings[i].Duration = float64(recordings[i].EndTime - recordings[i].StartTime)
+				}
+				break
+			}
+		}
 	}
 
 	// Sort by start time ascending (oldest first for timeline)
@@ -592,7 +654,7 @@ func (s *Server) GetRecordings(key string) []Recording {
 func (s *Server) GetStreamKeys() []StreamKeyInfo {
 	keys := []StreamKeyInfo{}
 
-	entries, err := os.ReadDir(s.recDir)
+	entries, err := os.ReadDir(s.hlsDir)
 	if err != nil {
 		return keys
 	}
@@ -651,7 +713,7 @@ func (s *Server) GetAllRecordings() map[string][]Recording {
 	allRecordings := make(map[string][]Recording)
 
 	// Get all stream key directories
-	entries, err := os.ReadDir(s.recDir)
+	entries, err := os.ReadDir(s.hlsDir)
 	if err != nil {
 		return allRecordings
 	}
