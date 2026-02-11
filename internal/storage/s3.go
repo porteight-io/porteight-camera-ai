@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -205,6 +206,33 @@ func (s *S3Store) PresignGet(ctx context.Context, key string) (string, error) {
 func (s *S3Store) RecordingPrefixForSession(streamKey, session string) string {
 	// recordings/<key>/<session>/...
 	return s.joinPrefix("recordings", streamKey, session)
+}
+
+// UploadBytes uploads raw bytes to a specific S3 object key.
+func (s *S3Store) UploadBytes(ctx context.Context, data []byte, key string, contentType string) error {
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(s.cfg.Bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String(contentType),
+	}
+
+	switch s.cfg.SSE {
+	case "AES256":
+		input.ServerSideEncryption = types.ServerSideEncryptionAes256
+	case "aws:kms":
+		input.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+		if s.cfg.KMSKeyID != "" {
+			input.SSEKMSKeyId = aws.String(s.cfg.KMSKeyID)
+		}
+	}
+
+	_, err := s.uploader.Upload(ctx, input)
+	return err
 }
 
 // UploadFile uploads a single local file to a specific S3 object key.

@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"porteight-camera-ai/internal/aimonitor"
 	"porteight-camera-ai/internal/db"
 	"porteight-camera-ai/internal/storage"
 	"porteight-camera-ai/internal/stream"
@@ -73,6 +74,43 @@ func validateSignedRequest(c *gin.Context) bool {
 }
 
 func main() {
+	// ──── Log file setup ────
+	// LOG_FILE: path to write logs (in addition to stderr). Default: logs/camera-ai.log
+	// LOG_DIR: directory for log files (used when LOG_FILE is not set). Default: ./logs
+	// Set LOG_FILE="" or LOG_FILE="none" to disable file logging.
+	{
+		logFile := os.Getenv("LOG_FILE")
+		if logFile == "" {
+			logDir := os.Getenv("LOG_DIR")
+			if logDir == "" {
+				if pdir := os.Getenv("PERSIST_DIR"); pdir != "" {
+					logDir = filepath.Join(pdir, "logs")
+				} else {
+					logDir = "./logs"
+				}
+			}
+			logFile = filepath.Join(logDir, "camera-ai.log")
+		}
+
+		if logFile != "none" {
+			if dir := filepath.Dir(logFile); dir != "." && dir != "/" {
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					log.Printf("WARNING: Failed to create log directory %s: %v (file logging disabled)", dir, err)
+				} else {
+					f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+					if err != nil {
+						log.Printf("WARNING: Failed to open log file %s: %v (file logging disabled)", logFile, err)
+					} else {
+						// Write to both stderr and the log file
+						multiWriter := io.MultiWriter(os.Stderr, f)
+						log.SetOutput(multiWriter)
+						log.Printf("Log file: %s", logFile)
+					}
+				}
+			}
+		}
+	}
+
 	// Storage paths
 	// - If PERSIST_DIR is set (e.g. /workspace on RunPod), we default all writable paths under it.
 	// - You can override individually with DB_PATH, RECORDINGS_DIR, HLS_DIR.
@@ -328,6 +366,75 @@ func main() {
 				}
 			})
 		}
+	}
+
+	// ──── AI Monitor (SiliconFlow VLM) ────
+	var aiMon *aimonitor.Monitor
+	{
+		sfAPIKey := os.Getenv("SILICONFLOW_API_KEY")
+		tbToken := os.Getenv("TINYBIRD_ADMIN_TOKEN")
+		tbBaseURL := os.Getenv("TINYBIRD_BASE_URL")
+		if tbBaseURL == "" {
+			tbBaseURL = "https://api.eu-central-1.aws.tinybird.co"
+		}
+		sfModel := os.Getenv("SILICONFLOW_MODEL")
+
+		snapshotIntervalSec := 60
+		if v := os.Getenv("AI_SNAPSHOT_INTERVAL_SECONDS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 10 && n <= 600 {
+				snapshotIntervalSec = n
+			}
+		}
+		cooldownSec := 300 // 5 minutes
+		if v := os.Getenv("AI_ALERT_COOLDOWN_SECONDS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 60 && n <= 1800 {
+				cooldownSec = n
+			}
+		}
+
+		aiMon = aimonitor.NewMonitor(aimonitor.Config{
+			SiliconFlowAPIKey: sfAPIKey,
+			SiliconFlowModel:  sfModel,
+			TinybirdToken:     tbToken,
+			TinybirdBaseURL:   tbBaseURL,
+			TinybirdDSName:    os.Getenv("TINYBIRD_AI_DATASOURCE"),
+			HLSDir:            *hlsDir,
+			S3Store:           s3Store,
+			SnapshotInterval:  time.Duration(snapshotIntervalSec) * time.Second,
+			AlertCooldown:     time.Duration(cooldownSec) * time.Second,
+		})
+
+		if sfAPIKey != "" {
+			modelName := sfModel
+			if modelName == "" {
+				modelName = "Qwen/Qwen3-VL-32B-Instruct"
+			}
+			log.Printf("AI Monitor enabled: model=%s interval=%ds cooldown=%ds tinybird=%v",
+				modelName, snapshotIntervalSec, cooldownSec, tbToken != "")
+		} else {
+			log.Println("AI Monitor disabled: SILICONFLOW_API_KEY not set")
+		}
+
+		// Hook into RTMP stream lifecycle to auto-start/stop AI monitoring
+		origOnStart := rtmpSrv.GetOnRecordingStart()
+		rtmpSrv.SetOnRecordingStart(func(key string, session string, localDir string) {
+			if origOnStart != nil {
+				origOnStart(key, session, localDir)
+			}
+			// Start AI monitoring for this stream (delayed slightly to let HLS segments generate)
+			go func() {
+				time.Sleep(10 * time.Second) // wait for first HLS segments
+				aiMon.StartStream(key)
+			}()
+		})
+
+		origOnComplete := rtmpSrv.GetOnRecordingComplete()
+		rtmpSrv.SetOnRecordingComplete(func(key string, session string, localDir string) {
+			aiMon.StopStream(key)
+			if origOnComplete != nil {
+				origOnComplete(key, session, localDir)
+			}
+		})
 	}
 
 	go func() {
@@ -1200,6 +1307,155 @@ func main() {
 			}
 
 			c.FileAttachment(outFile, downloadName)
+		})
+
+		// ──── AI Monitor API ────
+
+		// GET /api/ai/status – AI monitor status
+		api.GET("/ai/status", func(c *gin.Context) {
+			sfKey := os.Getenv("SILICONFLOW_API_KEY")
+			c.JSON(http.StatusOK, gin.H{
+				"enabled":           sfKey != "",
+				"model":             os.Getenv("SILICONFLOW_MODEL"),
+				"monitored_streams": aiMon.GetActiveStreams(),
+				"tinybird_enabled":  os.Getenv("TINYBIRD_ADMIN_TOKEN") != "",
+			})
+		})
+
+		// GET /api/ai/results?key=xxx&limit=50 – recent analysis results
+		api.GET("/ai/results", func(c *gin.Context) {
+			key := c.Query("key")
+			limit := 50
+			if v := c.Query("limit"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+					limit = n
+				}
+			}
+			results := aiMon.GetRecentResults(key, limit)
+			c.JSON(http.StatusOK, gin.H{"results": results})
+		})
+
+		// GET /api/ai/alerts?key=xxx&limit=50 – recent alert clips
+		api.GET("/ai/alerts", func(c *gin.Context) {
+			key := c.Query("key")
+			limit := 50
+			if v := c.Query("limit"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+					limit = n
+				}
+			}
+			alerts := aiMon.GetRecentAlerts(key, limit)
+
+			// Enrich with presigned URLs
+			type alertOut struct {
+				aimonitor.AlertClip
+				ClipURL string `json:"clip_url,omitempty"`
+			}
+			out := make([]alertOut, len(alerts))
+			for i, a := range alerts {
+				out[i] = alertOut{AlertClip: a}
+				if a.S3Key != "" {
+					if url, err := aiMon.GetAlertClipURL(a.S3Key); err == nil {
+						out[i].ClipURL = url
+					}
+				}
+			}
+			c.JSON(http.StatusOK, gin.H{"alerts": out})
+		})
+
+		// GET /api/s3/presign?key=... – generate a presigned URL for an S3 object (snapshots, clips)
+		api.GET("/s3/presign", func(c *gin.Context) {
+			s3Key := c.Query("key")
+			if s3Key == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "key is required"})
+				return
+			}
+			if s3Store == nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "S3 not configured"})
+				return
+			}
+			url, err := s3Store.PresignGet(c.Request.Context(), s3Key)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("presign failed: %v", err)})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"url": url})
+		})
+
+		// GET /api/s3/proxy?key=...&token=... – proxy-stream an S3 object (avoids CORS issues for video playback)
+		// Accepts auth via Bearer header, session cookie, OR ?token= query parameter (for <video> tags)
+		api.GET("/s3/proxy", func(c *gin.Context) {
+			// Check auth: Bearer header, session, or query param token
+			apiToken := os.Getenv("API_BEARER_TOKEN")
+			authHeader := c.GetHeader("Authorization")
+			qToken := c.Query("token")
+			authed := false
+
+			if apiToken != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				if strings.TrimPrefix(authHeader, "Bearer ") == apiToken {
+					authed = true
+				}
+			}
+			if !authed && apiToken != "" && qToken == apiToken {
+				authed = true
+			}
+			if !authed {
+				session := sessions.Default(c)
+				if session.Get("user_id") != nil {
+					authed = true
+				}
+			}
+			if !authed {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+
+			s3Key := c.Query("key")
+			if s3Key == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "key is required"})
+				return
+			}
+			if s3Store == nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "S3 not configured"})
+				return
+			}
+
+			body, err := s3Store.GetObject(c.Request.Context(), s3Key)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("S3 get failed: %v", err)})
+				return
+			}
+			defer body.Close()
+
+			// Determine content type from extension
+			ct := "application/octet-stream"
+			if strings.HasSuffix(s3Key, ".mp4") {
+				ct = "video/mp4"
+			} else if strings.HasSuffix(s3Key, ".jpg") || strings.HasSuffix(s3Key, ".jpeg") {
+				ct = "image/jpeg"
+			} else if strings.HasSuffix(s3Key, ".png") {
+				ct = "image/png"
+			}
+
+			c.Header("Content-Type", ct)
+			c.Header("Accept-Ranges", "bytes")
+			c.Header("Cache-Control", "private, max-age=300")
+			c.Status(http.StatusOK)
+			io.Copy(c.Writer, body)
+		})
+
+		// POST /api/ai/start/:key – manually start monitoring a stream
+		api.POST("/ai/start/:key", func(c *gin.Context) {
+			key := c.Param("key")
+			aiMon.StartStream(key)
+			c.JSON(http.StatusOK, gin.H{"ok": true, "stream_key": key})
+		})
+
+		// POST /api/ai/stop/:key – manually stop monitoring a stream
+		api.POST("/ai/stop/:key", func(c *gin.Context) {
+			key := c.Param("key")
+			aiMon.StopStream(key)
+			c.JSON(http.StatusOK, gin.H{"ok": true, "stream_key": key})
 		})
 
 		api.Static("/rec", *recDir)

@@ -94,8 +94,16 @@ func (s *Server) SetOnRecordingComplete(fn func(key string, session string, loca
 	s.onRecordingComplete = fn
 }
 
+func (s *Server) GetOnRecordingComplete() func(key string, session string, localDir string) {
+	return s.onRecordingComplete
+}
+
 func (s *Server) SetOnRecordingStart(fn func(key string, session string, localDir string)) {
 	s.onRecordingStart = fn
+}
+
+func (s *Server) GetOnRecordingStart() func(key string, session string, localDir string) {
+	return s.onRecordingStart
 }
 
 func (s *Server) Start() error {

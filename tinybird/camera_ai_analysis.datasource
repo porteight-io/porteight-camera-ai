@@ -1,0 +1,25 @@
+DESCRIPTION >
+    Stores AI safety analysis results from the VLM-based camera monitoring system.
+    Each row represents one snapshot analysis sent by porteight-camera-ai.
+
+SCHEMA >
+    `stream_key` String `json:$.stream_key`,
+    `timestamp` DateTime `json:$.timestamp`,
+    `snapshot_s3_key` String `json:$.snapshot_s3_key`,
+    `overall_status` LowCardinality(String) `json:$.overall_status`,
+    `human_intrusion_present` UInt8 `json:$.human_intrusion_present`,
+    `human_intrusion_description` String `json:$.human_intrusion_description`,
+    `visual_obstruction_present` UInt8 `json:$.visual_obstruction_present`,
+    `visual_obstruction_description` String `json:$.visual_obstruction_description`,
+    `camera_tampering_present` UInt8 `json:$.camera_tampering_present`,
+    `camera_tampering_description` String `json:$.camera_tampering_description`,
+    `input_tokens` UInt32 `json:$.input_tokens`,
+    `output_tokens` UInt32 `json:$.output_tokens`,
+    `api_response_ms` UInt32 `json:$.api_response_ms`,
+    `api_error` String `json:$.api_error`,
+    `clip_s3_key` String `json:$.clip_s3_key`,
+    `model` LowCardinality(String) `json:$.model`
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_SORTING_KEY "stream_key, timestamp"
