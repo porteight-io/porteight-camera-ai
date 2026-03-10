@@ -1,274 +1,453 @@
-2026/02/09 17:25:37 Log file: logs/camera-ai.log
-2026/02/09 17:25:37 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/09 17:25:37 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/09 17:25:37 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/09 17:25:37 RTMP Server starting on :1935
-2026/02/09 17:26:07 RTMP publish request: key=webcam from=192.168.102.65:59493 path=/live/webcam streams=2
-2026/02/09 17:26:07   stream[0] video codec=H264 resolution=1280x720
-2026/02/09 17:26:07   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/09 17:26:07 Stream started: webcam at 2026-02-09 17:26:07.272765 +0530 IST m=+29.761704793
-2026/02/09 17:26:07 S3 incremental upload started key=webcam session=2026-02-09_17-26-07 s3Prefix=recordings/webcam/2026-02-09_17-26-07
-2026/02/09 17:26:17 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/09 17:27:17 [AI Monitor] webcam – captured snapshot (27834 bytes)
-2026/02/09 17:27:24 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 7490ms, in=474 out=132 tokens)
-2026/02/09 17:27:24 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/09 17:27:24 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/09 17:27:25 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/09 17:28:17 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/09 17:29:17 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/09 17:30:17 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/09 17:31:17 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/09 17:32:17 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/09 17:33:17 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/09 17:33:17 [AI Monitor] webcam – captured snapshot (27757 bytes)
-2026/02/09 17:33:27 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 10583ms, in=474 out=125 tokens)
-2026/02/09 17:33:27 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/09 17:33:27 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/09 17:33:28 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/09 17:34:17 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/09 17:35:17 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/09 17:36:17 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/09 17:37:17 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/09 17:38:17 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/09 17:39:17 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/09 17:39:17 [AI Monitor] webcam – captured snapshot (86274 bytes)
-2026/02/09 17:39:33 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 16296ms, in=474 out=164 tokens)
-2026/02/09 17:39:33 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/09 17:39:33 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/09 17:39:35 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/09 17:40:17 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/09 17:40:37 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-09_17-27-17.mp4
-2026/02/09 17:41:17 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/09 17:42:17 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/09 17:43:17 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/09 17:44:17 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/09 17:45:17 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/09 17:45:17 [AI Monitor] webcam – captured snapshot (92575 bytes)
-2026/02/09 17:45:30 [AI Monitor] webcam – status=critical intrusion=true obstruction=false tampering=false (took 12748ms, in=474 out=123 tokens)
-2026/02/09 17:45:30 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/09 17:45:30 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/09 17:45:31 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/09 17:46:17 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/09 17:47:17 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/09 17:48:17 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/09 17:48:46 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-09_17-33-17.mp4
-2026/02/09 17:49:17 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/09 17:50:17 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/09 17:51:17 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/09 17:51:17 [AI Monitor] webcam – captured snapshot (81711 bytes)
-2026/02/09 17:51:28 [AI Monitor] webcam – status=critical intrusion=true obstruction=false tampering=false (took 11280ms, in=474 out=125 tokens)
-2026/02/09 17:51:28 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/09 17:51:28 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/09 17:51:30 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/09 17:52:17 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/09 17:53:17 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/09 17:54:17 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/09 17:55:17 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/09 17:56:17 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/09 17:56:36 Shutting down...
-2026/02/11 16:09:45 Log file: logs/camera-ai.log
-2026/02/11 16:09:45 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/11 16:09:45 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/11 16:09:45 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/11 16:09:45 RTMP Server starting on :1935
-2026/02/11 16:35:49 RTMP publish request: key=webcam from=192.168.102.65:53741 path=/live/webcam streams=2
-2026/02/11 16:35:49   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 16:35:49   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 16:35:49 Stream started: webcam at 2026-02-11 16:35:49.61605 +0530 IST m=+923.505165209
-2026/02/11 16:35:49 S3 incremental upload started key=webcam session=2026-02-11_16-35-49 s3Prefix=recordings/webcam/2026-02-11_16-35-49
-2026/02/11 16:35:59 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 16:36:59 [AI Monitor] webcam – captured snapshot (27543 bytes)
-2026/02/11 16:37:30 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 30333ms, in=1869 out=158 tokens)
-2026/02/11 16:37:30 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 16:37:30 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 16:37:31 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 16:37:59 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/11 16:38:59 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 16:39:59 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 16:40:59 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 16:41:59 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/11 16:42:59 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 16:42:59 [AI Monitor] webcam – captured snapshot (27503 bytes)
-2026/02/11 16:43:12 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 12684ms, in=1869 out=157 tokens)
-2026/02/11 16:43:12 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 16:43:12 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 16:43:14 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 16:43:59 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/11 16:44:59 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 16:45:59 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 16:46:59 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 16:47:59 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/11 16:48:16 Shutting down...
-2026/02/11 16:48:25 Log file: logs/camera-ai.log
-2026/02/11 16:48:25 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/11 16:48:25 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/11 16:48:25 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/11 16:48:25 RTMP Server starting on :1935
-2026/02/11 16:48:26 RTMP publish request: key=webcam from=192.168.102.65:53744 path=/live/webcam streams=2
-2026/02/11 16:48:26   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 16:48:26   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 16:48:26 Stream started: webcam at 2026-02-11 16:48:26.002371 +0530 IST m=+0.454620126
-2026/02/11 16:48:26 S3 incremental upload started key=webcam session=2026-02-11_16-48-26 s3Prefix=recordings/webcam/2026-02-11_16-48-26
-2026/02/11 16:48:36 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 16:49:36 [AI Monitor] webcam – captured snapshot (27356 bytes)
-2026/02/11 16:49:36 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_16-49-36.jpg
-2026/02/11 16:52:49 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 193058ms, in=1869 out=150 tokens)
-2026/02/11 16:52:49 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 16:52:49 [AI Monitor] webcam – in alert cooldown (107s remaining), skipping snapshot
-2026/02/11 16:52:49 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 16:52:50 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 16:53:36 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 16:54:36 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 16:54:36 [AI Monitor] webcam – captured snapshot (101793 bytes)
-2026/02/11 16:54:36 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_16-54-36.jpg
-2026/02/11 16:55:56 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 80025ms, in=1869 out=159 tokens)
-2026/02/11 16:55:56 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 16:55:56 [AI Monitor] webcam – in alert cooldown (220s remaining), skipping snapshot
-2026/02/11 16:55:56 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 16:55:56 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 16:56:36 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 16:57:36 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 16:58:36 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 16:59:36 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 16:59:36 [AI Monitor] webcam – captured snapshot (110867 bytes)
-2026/02/11 16:59:36 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_16-59-36.jpg
-2026/02/11 16:59:47 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 11794ms, in=1869 out=157 tokens)
-2026/02/11 16:59:47 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 16:59:47 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 16:59:49 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 17:00:36 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/11 17:01:36 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:02:36 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 17:03:36 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 17:04:36 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/11 17:05:36 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 17:05:36 [AI Monitor] webcam – captured snapshot (113894 bytes)
-2026/02/11 17:05:36 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-05-36.jpg
-2026/02/11 17:05:50 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 13690ms, in=1869 out=167 tokens)
-2026/02/11 17:05:50 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 17:05:50 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 17:05:50 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 17:06:05 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-11_16-49-36.mp4
-2026/02/11 17:06:36 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/11 17:07:36 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:08:36 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 17:09:36 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 17:10:24 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-11_16-54-36.mp4
-2026/02/11 17:10:36 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 17:10:36 [AI Monitor] webcam – captured snapshot (113446 bytes)
-2026/02/11 17:10:36 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-10-36.jpg
-2026/02/11 17:11:18 Shutting down...
-2026/02/11 17:11:32 Log file: logs/camera-ai.log
-2026/02/11 17:11:32 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/11 17:11:32 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/11 17:11:32 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/11 17:11:32 RTMP Server starting on :1935
-2026/02/11 17:11:34 RTMP publish request: key=webcam from=192.168.102.65:53749 path=/live/webcam streams=2
-2026/02/11 17:11:34   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 17:11:34   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 17:11:34 Stream started: webcam at 2026-02-11 17:11:34.125787 +0530 IST m=+2.017763876
-2026/02/11 17:11:34 S3 incremental upload started key=webcam session=2026-02-11_17-11-34 s3Prefix=recordings/webcam/2026-02-11_17-11-34
-2026/02/11 17:11:44 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 17:12:44 [AI Monitor] webcam – captured snapshot (112696 bytes)
-2026/02/11 17:12:44 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-12-44.jpg
-2026/02/11 17:13:07 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 23370ms, in=1869 out=157 tokens)
-2026/02/11 17:13:07 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 17:13:07 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 17:13:44 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
-2026/02/11 17:14:44 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:15:25 Stream read error: read tcp 192.168.100.100:1935->192.168.102.65:53749: read: connection reset by peer
-2026/02/11 17:15:25 Stream ended: webcam
-2026/02/11 17:15:25 HLS recording saved: web/static/hls/webcam/recordings/2026-02-11_17-11-34
-2026/02/11 17:15:25 [AI Monitor] Stopped monitoring stream: webcam
-2026/02/11 17:15:25 S3 upload starting key=webcam session=2026-02-11_17-11-34 dir=web/static/hls/webcam/recordings/2026-02-11_17-11-34
-2026/02/11 17:15:25 S3 incremental upload stopped key=webcam session=2026-02-11_17-11-34
-2026/02/11 17:15:26 S3 upload complete key=webcam session=2026-02-11_17-11-34 s3=prod-camera-ai-snapshots/recordings/webcam/2026-02-11_17-11-34
-2026/02/11 17:18:08 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-11_17-12-44.mp4
-2026/02/11 17:18:09 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 17:37:28 RTMP publish request: key=webcam from=192.168.102.65:49764 path=/live/webcam streams=2
-2026/02/11 17:37:28   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 17:37:28   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 17:37:28 Stream started: webcam at 2026-02-11 17:37:28.199873 +0530 IST m=+1556.092695460
-2026/02/11 17:37:28 S3 incremental upload started key=webcam session=2026-02-11_17-37-28 s3Prefix=recordings/webcam/2026-02-11_17-37-28
-2026/02/11 17:37:38 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 17:38:38 [AI Monitor] webcam – captured snapshot (27718 bytes)
-2026/02/11 17:38:38 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-38-38.jpg
-2026/02/11 17:39:53 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 74989ms, in=1869 out=154 tokens)
-2026/02/11 17:39:53 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 17:39:53 [AI Monitor] webcam – in alert cooldown (225s remaining), skipping snapshot
-2026/02/11 17:39:53 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 17:40:38 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:41:38 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 17:42:38 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 17:43:38 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 17:43:38 [AI Monitor] webcam – captured snapshot (19456 bytes)
-2026/02/11 17:43:38 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-43-38.jpg
-2026/02/11 17:44:43 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 65016ms, in=1869 out=141 tokens)
-2026/02/11 17:44:43 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 17:44:43 [AI Monitor] webcam – in alert cooldown (235s remaining), skipping snapshot
-2026/02/11 17:44:43 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 17:45:38 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:46:38 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 17:47:38 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 17:48:38 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/11 17:49:38 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 17:49:38 [AI Monitor] webcam – captured snapshot (19302 bytes)
-2026/02/11 17:49:39 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-49-38.jpg
-2026/02/11 17:50:53 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 74017ms, in=1869 out=141 tokens)
-2026/02/11 17:50:53 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 17:50:53 [AI Monitor] webcam – in alert cooldown (225s remaining), skipping snapshot
-2026/02/11 17:50:53 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 17:51:38 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 17:52:38 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 17:53:13 [AI Monitor] webcam – alert clip saved: recordings/webcam/ai-alerts/2026-02-11_17-38-38.mp4
-2026/02/11 17:53:14 [AI Monitor] webcam – sent to Tinybird (status=critical)
-2026/02/11 17:53:38 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 17:54:31 Shutting down...
-2026/02/11 17:55:16 Log file: logs/camera-ai.log
-2026/02/11 17:55:16 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/11 17:55:16 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/11 17:55:16 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/11 17:55:16 RTMP Server starting on :1935
-2026/02/11 17:55:17 RTMP publish request: key=webcam from=192.168.102.65:49790 path=/live/webcam streams=2
-2026/02/11 17:55:17   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 17:55:17   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 17:55:17 Stream started: webcam at 2026-02-11 17:55:17.678139 +0530 IST m=+0.764135210
-2026/02/11 17:55:17 S3 incremental upload started key=webcam session=2026-02-11_17-55-17 s3Prefix=recordings/webcam/2026-02-11_17-55-17
-2026/02/11 17:55:27 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 17:56:27 [AI Monitor] webcam – captured snapshot (19243 bytes)
-2026/02/11 17:56:27 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_17-56-27.jpg
-2026/02/11 17:56:27 Shutting down...
-2026/02/11 17:59:49 Log file: logs/camera-ai.log
-2026/02/11 17:59:49 S3 enabled bucket=prod-camera-ai-snapshots region=ap-south-1 prefix= sse=AES256
-2026/02/11 17:59:49 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
-2026/02/11 17:59:49 WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.
-2026/02/11 17:59:49 RTMP Server starting on :1935
-2026/02/11 17:59:51 RTMP publish request: key=webcam from=192.168.102.65:49861 path=/live/webcam streams=2
-2026/02/11 17:59:51   stream[0] video codec=H264 resolution=1280x720
-2026/02/11 17:59:51   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
-2026/02/11 17:59:51 Stream started: webcam at 2026-02-11 17:59:51.782167 +0530 IST m=+2.756850876
-2026/02/11 17:59:51 S3 incremental upload started key=webcam session=2026-02-11_17-59-51 s3Prefix=recordings/webcam/2026-02-11_17-59-51
-2026/02/11 18:00:01 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
-2026/02/11 18:01:01 [AI Monitor] webcam – captured snapshot (20095 bytes)
-2026/02/11 18:01:02 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_18-01-01.jpg
-2026/02/11 18:02:58 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 116395ms, in=1869 out=136 tokens)
-2026/02/11 18:02:58 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 18:02:58 [AI Monitor] webcam – in alert cooldown (183s remaining), skipping snapshot
-2026/02/11 18:02:58 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 18:03:01 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
-2026/02/11 18:04:01 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 18:05:01 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 18:06:01 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 18:06:01 [AI Monitor] webcam – captured snapshot (17909 bytes)
-2026/02/11 18:06:01 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_18-06-01.jpg
-2026/02/11 18:08:10 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 128321ms, in=1869 out=140 tokens)
-2026/02/11 18:08:10 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
-2026/02/11 18:08:10 [AI Monitor] webcam – in alert cooldown (172s remaining), skipping snapshot
-2026/02/11 18:08:10 [AI Monitor] webcam – waiting 5 minutes to capture post-alert footage...
-2026/02/11 18:09:01 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
-2026/02/11 18:10:01 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
-2026/02/11 18:11:01 [AI Monitor] webcam – in alert cooldown (0s remaining), skipping snapshot
-2026/02/11 18:12:01 [AI Monitor] webcam – alert cooldown ended, resuming analysis
-2026/02/11 18:12:01 [AI Monitor] webcam – captured snapshot (18748 bytes)
-2026/02/11 18:12:03 [AI Monitor] webcam – snapshot uploaded to S3: snapshots/webcam/2026-02-11_18-12-01.jpg
-2026/02/11 18:12:46 Shutting down...
+2026/03/10 16:10:48 Shutting down...
+2026/03/10 16:10:50 Log file: logs/camera-ai.log
+2026/03/10 16:10:50 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:10:50 RTMP Server starting on :1935
+2026/03/10 16:11:42 Shutting down...
+2026/03/10 16:14:37 Log file: logs/camera-ai.log
+2026/03/10 16:14:37 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:14:37 RTMP Server starting on :1935
+2026/03/10 16:18:50 Shutting down...
+2026/03/10 16:18:54 Log file: logs/camera-ai.log
+2026/03/10 16:18:54 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:18:54 RTMP Server starting on :1935
+2026/03/10 16:18:55 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:18:56 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:19:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:20:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:21:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:22:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:23:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:23:48 Shutting down...
+2026/03/10 16:23:52 Log file: logs/camera-ai.log
+2026/03/10 16:23:52 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:23:52 RTMP Server starting on :1935
+2026/03/10 16:23:55 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:24:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:25:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:26:10 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:26:33 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token
+2026/03/10 16:26:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:27:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:28:21 Shutting down...
+2026/03/10 16:28:25 Log file: logs/camera-ai.log
+2026/03/10 16:28:25 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:28:25 RTMP Server starting on :1935
+2026/03/10 16:28:29 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:28:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:28:57 Shutting down...
+2026/03/10 16:29:28 Log file: logs/camera-ai.log
+2026/03/10 16:29:28 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:29:28 RTMP Server starting on :1935
+2026/03/10 16:29:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:29:58 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:29:59 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:30:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:31:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:32:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:35 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:37 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:38 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:48 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:53 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:54 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:58 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:58 camera auth denied: invalid token path=/api/stream-keys err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:58 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:58 camera auth denied: invalid token path=/auth/bootstrap err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:58 camera auth denied: invalid token path=/api/s3/status err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:59 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:59 camera auth denied: invalid token path=/api/stream-keys err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:59 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:33:59 camera auth denied: invalid token path=/api/s3/status err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:04 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:05 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:10 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:11 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:16 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:17 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:22 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:23 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:28 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:29 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:29 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:30 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:40 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:41 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:46 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:47 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:52 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:54 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:34:59 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:00 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:00 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:01 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:05 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:06 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:11 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:12 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:17 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:18 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:23 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:24 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:29 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:30 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:31 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:32 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:36 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:41 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:42 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:47 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:35:48 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:36:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:37:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:38:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:39:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:40:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:41:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:42:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:43:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:44:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:45:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:49:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:50:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:51:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:52:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:53:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:54:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:55:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:56:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:57:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:58:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:58:39 camera auth denied: invalid token path=/ err=invalid nextauth token: decrypt failed
+2026/03/10 16:58:54 Shutting down...
+2026/03/10 16:58:58 Log file: logs/camera-ai.log
+2026/03/10 16:58:58 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 16:58:58 RTMP Server starting on :1935
+2026/03/10 16:59:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 16:59:40 admin login successful for user "admin"
+2026/03/10 17:03:37 Shutting down...
+2026/03/10 17:03:41 Log file: logs/camera-ai.log
+2026/03/10 17:03:41 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 17:03:41 RTMP Server starting on :1935
+2026/03/10 17:08:42 camera auth denied: missing auth token path=/api/recordings
+2026/03/10 17:08:57 camera admin session invalid: invalid admin session token signature
+2026/03/10 17:08:57 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:35 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:36 camera auth denied: invalid token path=/api/recordings/record err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:36 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:37 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:40 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:41 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:44 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:45 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:46 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:47 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:48 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:49 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:52 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:52 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:53 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:09:53 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:38 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:39 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:42 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:43 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:44 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:46 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:49 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:50 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:50 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:51 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:51 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:52 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:57 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:58 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:58 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:10:59 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:03 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:04 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:06 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:07 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:09 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:10 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:14 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:15 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:15 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:16 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:21 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:21 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:22 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:22 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:22 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:23 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:27 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:28 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:30 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:31 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:33 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:38 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:39 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:39 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:40 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:45 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:46 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:46 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:47 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:51 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:52 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:52 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:53 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:54 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:55 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:57 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:11:58 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:02 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:03 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:03 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:04 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:09 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:10 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:10 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:11 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:15 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:16 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:18 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:19 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:21 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:22 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:23 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:24 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:26 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:27 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:27 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:28 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:33 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:34 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:35 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:39 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:40 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:42 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:43 camera auth denied: invalid token path=/api/recordings/webcam err=invalid nextauth token: decrypt failed
+2026/03/10 17:12:45 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:13:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:14:34 camera auth denied: invalid token path=/api/streams err=invalid nextauth token: decrypt failed
+2026/03/10 17:15:08 Shutting down...
+2026/03/10 17:15:14 Log file: logs/camera-ai.log
+2026/03/10 17:15:14 AI Monitor enabled: model=Qwen/Qwen3-VL-32B-Instruct interval=60s cooldown=300s tinybird=true
+2026/03/10 17:15:14 RTMP Server starting on :1935
+2026/03/10 17:17:16 camera auth denied: invalid token path=/api/recordings err=invalid nextauth token: decrypt failed
+2026/03/10 17:17:42 camera auth denied: missing auth token path=/
+2026/03/10 17:17:46 admin login successful for user "admin"
+2026/03/10 17:17:50 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:17:51 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:17:53 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:17:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:17:57 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:17:58 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:17:59 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:17:59 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:00 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:03 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:18:04 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:18:05 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:11 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:12 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:14 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:15 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:17 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:22 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:23 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:23 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:24 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:29 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:31 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:18:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:35 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:18:35 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:36 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:38 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:39 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:41 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:46 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:53 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:18:55 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:18:55 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:00 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:01 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:02 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:03 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:05 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:19:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:19:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:10 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:11 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:12 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:13 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:19 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:19 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:24 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:25 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:26 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:27 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:31 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:35 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:36 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:36 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:19:37 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:37 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:19:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:43 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:43 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:49 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:50 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:51 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:55 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:19:58 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:19:59 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:00 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:01 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:20:08 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:20:12 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:13 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:14 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:15 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:19 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:22 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:23 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:24 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:25 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:31 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:31 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:36 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:37 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:38 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:38 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:20:39 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:39 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:20:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:43 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:46 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:49 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:20:55 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:20:55 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:00 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:01 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:02 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:03 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:06 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:07 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:09 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:21:10 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:10 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:21:11 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:12 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:13 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:18 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:19 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:19 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:24 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:25 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:26 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:27 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:21:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:31 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:21:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/record
+2026/03/10 17:31:29 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:30 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/webcam
+2026/03/10 17:31:34 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:35 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:35 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/webcam
+2026/03/10 17:31:36 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:41 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:42 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/webcam
+2026/03/10 17:31:43 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings/webcam
+2026/03/10 17:31:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/stream-keys
+2026/03/10 17:31:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/s3/status
+2026/03/10 17:31:47 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:31:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/stream-keys
+2026/03/10 17:31:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/recordings
+2026/03/10 17:31:48 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/s3/status
+2026/03/10 17:31:53 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:31:54 camera auth denied: user 928fe9fe-a795-46a1-947d-0a87c8e53de3 allowlist disabled path=/api/streams
+2026/03/10 17:32:09 RTMP publish request: key=webcam from=192.168.102.65:62408 path=/live/webcam streams=2
+2026/03/10 17:32:09   stream[0] video codec=H264 resolution=1280x720
+2026/03/10 17:32:09   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
+2026/03/10 17:32:09 Stream started: webcam at 2026-03-10 17:32:09.463695 +0530 IST m=+1014.695038626
+2026/03/10 17:32:19 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
+2026/03/10 17:32:20 Stream ended: webcam
+2026/03/10 17:32:20 HLS recording saved: web/static/hls/webcam/recordings/2026-03-10_17-32-09
+2026/03/10 17:32:20 [AI Monitor] Stopped monitoring stream: webcam
+2026/03/10 17:32:25 RTMP publish request: key=webcam from=192.168.102.65:62409 path=/live/webcam streams=2
+2026/03/10 17:32:25   stream[0] video codec=H264 resolution=1280x720
+2026/03/10 17:32:25   stream[1] audio codec=AAC sample_rate=48000Hz channels=1 sample_fmt=FLTP
+2026/03/10 17:32:25 Stream started: webcam at 2026-03-10 17:32:25.821499 +0530 IST m=+1031.052816126
+2026/03/10 17:32:35 [AI Monitor] Started monitoring stream: webcam (interval=1m0s, cooldown=5m0s)
+2026/03/10 17:33:35 [AI Monitor] webcam – captured snapshot (61248 bytes)
+2026/03/10 17:33:47 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 11471ms, in=1869 out=144 tokens)
+2026/03/10 17:33:47 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
+2026/03/10 17:33:47 [AI Monitor] webcam – failed to save alert clip: S3 not configured, cannot save alert clip
+2026/03/10 17:33:48 [AI Monitor] webcam – sent to Tinybird (status=critical)
+2026/03/10 17:34:35 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
+2026/03/10 17:35:35 [AI Monitor] webcam – in alert cooldown (180s remaining), skipping snapshot
+2026/03/10 17:36:35 [AI Monitor] webcam – in alert cooldown (120s remaining), skipping snapshot
+2026/03/10 17:37:35 [AI Monitor] webcam – in alert cooldown (60s remaining), skipping snapshot
+2026/03/10 17:38:35 [AI Monitor] webcam – alert cooldown ended, resuming analysis
+2026/03/10 17:38:35 [AI Monitor] webcam – captured snapshot (27365 bytes)
+2026/03/10 17:38:46 [AI Monitor] webcam – status=critical intrusion=false obstruction=true tampering=true (took 10800ms, in=1869 out=146 tokens)
+2026/03/10 17:38:46 [AI Monitor] webcam – ALERT detected (critical), saving 10min clip and entering cooldown
+2026/03/10 17:38:46 [AI Monitor] webcam – failed to save alert clip: S3 not configured, cannot save alert clip
+2026/03/10 17:38:47 [AI Monitor] webcam – sent to Tinybird (status=critical)
+2026/03/10 17:39:35 [AI Monitor] webcam – in alert cooldown (240s remaining), skipping snapshot
+2026/03/10 17:40:25 Shutting down...

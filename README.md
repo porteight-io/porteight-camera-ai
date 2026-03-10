@@ -1,12 +1,14 @@
 # PortEight Camera AI Streaming Server
 
-This is a Go-based RTMP server that accepts multiple camera streams, records them, and restreams them via HLS to a web interface.
+This is a Go-based RTMP server that accepts multiple camera streams, records them, analyzes them with AI, and restreams them via HLS to a protected web interface.
 
 ## Features
 - **RTMP Ingest**: Accepts streams from cameras (OBS, FFmpeg, etc.).
 - **HLS Output**: Low-latency HLS delivery to browsers.
 - **Recording**: Automatically saves streams as MP4.
 - **Stream Management**: Generate stream keys via Web UI.
+- **Shared Auth**: Validates Suvidhi `next-auth.session-token` values directly in the camera service.
+- **Camera Allowlist**: Requires an explicit per-user camera access allowlist on top of normal login.
 - **High Performance**: Uses `joy4` for efficient RTMP handling and `ffmpeg` for optimized transmuxing.
 
 ## Prerequisites
@@ -23,11 +25,31 @@ This is a Go-based RTMP server that accepts multiple camera streams, records the
 
 2. Run the server:
    ```bash
-   go run cmd/server/main.go
+   go run ./cmd/server
    ```
 
 3. Access the Web UI:
    - Open [http://localhost:8080](http://localhost:8080)
+
+## Authentication
+
+The camera service no longer uses a local username/password or `SESSION_AUTH_KEY`.
+
+Protected camera APIs and pages now require:
+
+- `NEXTAUTH_SECRET` to match the Suvidhi frontend/backend secret used to issue `next-auth.session-token`
+- a valid Suvidhi session token (bearer token for dashboard API calls, or camera bootstrap cookie for the built-in UI)
+- an enabled row in the camera allowlist for the Suvidhi user ID
+
+Admin users can manage the allowlist from `/access` inside the camera service after authentication succeeds.
+
+Recommended env vars:
+
+```bash
+export NEXTAUTH_SECRET="replace-with-the-same-secret-used-by-suvidhi"
+export AUTH_COOKIE_SECURE=false
+export SIGNING_SECRET="replace-with-a-long-random-value-for-signed-media-urls"
+```
 
 ## Persistent storage (RunPod Volume Disk)
 
@@ -57,7 +79,7 @@ export RECORDINGS_DIR=/workspace/recordings
 export HLS_DIR=/workspace/hls
 ```
 
-Note: the UI still plays HLS at `/static/hls/...` — the server now maps that URL to whatever `HLS_DIR` is set to.
+Note: protected playback now uses signed `/public/live/...` and `/public/archive/...` URLs rather than raw `/static/hls/...` mounts.
 
 ## Production (AWS Linux)
 

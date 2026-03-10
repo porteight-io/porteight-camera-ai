@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-950 text-gray-100">
+    <div class="mx-auto max-w-6xl px-6 py-8">
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <a href="/" class="text-sm text-blue-300 hover:text-blue-200">Back to dashboard</a>
+                <h1 class="mt-2 text-3xl font-semibold text-white">Camera Access</h1>
+                <p class="mt-2 text-sm text-gray-400">Allowlist Suvidhi users who can access the camera APIs and UI.</p>
+            </div>
+            <div class="text-right text-sm text-gray-400">
+                <div>{{.ViewerName}}</div>
+                <div>{{.ViewerEmail}}</div>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-[360px,1fr]">
+            <section class="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+                <h2 class="text-lg font-medium text-white">Add User</h2>
+                <form id="accessForm" class="mt-4 space-y-4">
+                    <div>
+                        <label class="mb-1 block text-sm text-gray-300" for="suvidhiUserId">Suvidhi user ID</label>
+                        <input id="suvidhiUserId" name="suvidhiUserId" required class="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm text-gray-300" for="name">Name</label>
+                        <input id="name" name="name" class="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm text-gray-300" for="email">Email</label>
+                        <input id="email" name="email" type="email" class="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm text-gray-300" for="notes">Notes</label>
+                        <textarea id="notes" name="notes" rows="3" class="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"></textarea>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-300">
+                        <input id="enabled" name="enabled" type="checkbox" checked class="rounded border-gray-600 bg-gray-950 text-blue-500 focus:ring-blue-500" />
+                        Enabled
+                    </label>
+                    <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">Save Allowlist Entry</button>
+                </form>
+                <p id="formStatus" class="mt-4 text-sm text-gray-400"></p>
+            </section>
+
+            <section class="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-white">Allowed Users</h2>
+                    <button id="refreshBtn" class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:border-gray-600">Refresh</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-800 text-sm">
+                        <thead class="text-left text-gray-400">
+                            <tr>
+                                <th class="py-3 pr-4 font-medium">User</th>
+                                <th class="py-3 pr-4 font-medium">Suvidhi ID</th>
+                                <th class="py-3 pr-4 font-medium">Notes</th>
+                                <th class="py-3 pr-4 font-medium">Last Validated</th>
+                                <th class="py-3 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accessRows" class="divide-y divide-gray-800"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const rowsEl = document.getElementById('accessRows');
+        const formEl = document.getElementById('accessForm');
+        const statusEl = document.getElementById('formStatus');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        function formatDate(value) {
+            if (!value) return 'Never';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'Never';
+            return date.toLocaleString();
+        }
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.className = `mt-4 text-sm ${isError ? 'text-red-400' : 'text-gray-400'}`;
+        }
+
+        async function loadUsers() {
+            rowsEl.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500">Loading...</td></tr>';
+            const res = await fetch('/api/access', { credentials: 'include' });
+            if (!res.ok) {
+                rowsEl.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-red-400">Failed to load allowlist.</td></tr>';
+                return;
+            }
+            const data = await res.json();
+            const users = data.users || [];
+            if (users.length === 0) {
+                rowsEl.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500">No users are allowlisted yet.</td></tr>';
+                return;
+            }
+            rowsEl.innerHTML = users.map((user) => `
+                <tr>
+                    <td class="py-4 pr-4">
+                        <div class="font-medium text-white">${user.name || 'Unknown user'}</div>
+                        <div class="text-gray-400">${user.email || '-'}</div>
+                        <div class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs ${user.enabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}">${user.enabled ? 'Enabled' : 'Disabled'}</div>
+                    </td>
+                    <td class="py-4 pr-4 font-mono text-gray-300">${user.suvidhiUserId}</td>
+                    <td class="py-4 pr-4 text-gray-400">${user.notes || '-'}</td>
+                    <td class="py-4 pr-4 text-gray-400">${formatDate(user.lastValidatedAt)}</td>
+                    <td class="py-4">
+                        <div class="flex gap-2">
+                            <button data-action="toggle" data-id="${user.suvidhiUserId}" data-enabled="${user.enabled}" class="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-200 hover:border-gray-600">
+                                ${user.enabled ? 'Disable' : 'Enable'}
+                            </button>
+                            <button data-action="delete" data-id="${user.suvidhiUserId}" class="rounded-lg border border-red-500/40 px-3 py-2 text-xs text-red-300 hover:border-red-400">
+                                Remove
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleUser(userId, enabled) {
+            const res = await fetch(`/api/access/${encodeURIComponent(userId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: !enabled }),
+            });
+            if (!res.ok) {
+                setStatus('Failed to update access user.', true);
+                return;
+            }
+            setStatus('Access user updated.');
+            await loadUsers();
+        }
+
+        async function deleteUser(userId) {
+            const res = await fetch(`/api/access/${encodeURIComponent(userId)}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                setStatus('Failed to remove access user.', true);
+                return;
+            }
+            setStatus('Access user removed.');
+            await loadUsers();
+        }
+
+        rowsEl.addEventListener('click', async (event) => {
+            const button = event.target.closest('button');
+            if (!button) return;
+            const userId = button.dataset.id;
+            if (!userId) return;
+            if (button.dataset.action === 'toggle') {
+                await toggleUser(userId, button.dataset.enabled === 'true');
+            }
+            if (button.dataset.action === 'delete') {
+                if (window.confirm(`Remove camera access for ${userId}?`)) {
+                    await deleteUser(userId);
+                }
+            }
+        });
+
+        formEl.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(formEl);
+            const payload = {
+                suvidhiUserId: String(formData.get('suvidhiUserId') || '').trim(),
+                name: String(formData.get('name') || '').trim(),
+                email: String(formData.get('email') || '').trim(),
+                notes: String(formData.get('notes') || '').trim(),
+                enabled: formData.get('enabled') === 'on',
+            };
+            const res = await fetch('/api/access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                setStatus(text || 'Failed to save access user.', true);
+                return;
+            }
+            formEl.reset();
+            document.getElementById('enabled').checked = true;
+            setStatus('Access user saved.');
+            await loadUsers();
+        });
+
+        refreshBtn.addEventListener('click', () => {
+            void loadUsers();
+        });
+
+        void loadUsers();
+    </script>
+</body>
+</html>

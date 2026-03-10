@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -58,6 +59,20 @@ type HLSRecordingSession struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// CameraAccessUser stores the explicit allowlist for camera-service access.
+// A valid frontend auth token is still required; this table is the second gate.
+type CameraAccessUser struct {
+	ID              uint      `gorm:"primaryKey" json:"id"`
+	SuvidhiUserID   string    `gorm:"uniqueIndex" json:"suvidhiUserId"`
+	Email           string    `json:"email"`
+	Name            string    `json:"name"`
+	Enabled         bool      `gorm:"default:true" json:"enabled"`
+	Notes           string    `json:"notes"`
+	LastValidatedAt time.Time `json:"lastValidatedAt"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
 func Init(path string) error {
 	var err error
 	DB, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
@@ -65,7 +80,7 @@ func Init(path string) error {
 		return err
 	}
 
-	err = DB.AutoMigrate(&User{}, &StreamKey{}, &Recording{}, &HLSRecordingSession{})
+	err = DB.AutoMigrate(&User{}, &StreamKey{}, &Recording{}, &HLSRecordingSession{}, &CameraAccessUser{})
 	if err != nil {
 		return err
 	}
@@ -104,13 +119,81 @@ func ListHLSRecordingSessions(streamKey string) ([]HLSRecordingSession, error) {
 	return out, err
 }
 
+func UpsertCameraAccessUser(entry *CameraAccessUser) error {
+	if entry == nil {
+		return errors.New("nil camera access user")
+	}
+	if entry.SuvidhiUserID == "" {
+		return errors.New("suvidhi user id is required")
+	}
+
+	var existing CameraAccessUser
+	err := DB.Where("suvidhi_user_id = ?", entry.SuvidhiUserID).First(&existing).Error
+	if err == nil {
+		entry.ID = existing.ID
+		return DB.Save(entry).Error
+	}
+	return DB.Create(entry).Error
+}
+
+func GetCameraAccessUser(suvidhiUserID string) (*CameraAccessUser, error) {
+	if suvidhiUserID == "" {
+		return nil, errors.New("suvidhi user id is required")
+	}
+	var entry CameraAccessUser
+	if err := DB.Where("suvidhi_user_id = ?", suvidhiUserID).First(&entry).Error; err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
+func TouchCameraAccessUserValidation(suvidhiUserID string) error {
+	if suvidhiUserID == "" {
+		return errors.New("suvidhi user id is required")
+	}
+	return DB.Model(&CameraAccessUser{}).
+		Where("suvidhi_user_id = ?", suvidhiUserID).
+		Update("last_validated_at", time.Now()).
+		Error
+}
+
+func SetCameraAccessUserEnabled(suvidhiUserID string, enabled bool) error {
+	if suvidhiUserID == "" {
+		return errors.New("suvidhi user id is required")
+	}
+	return DB.Model(&CameraAccessUser{}).
+		Where("suvidhi_user_id = ?", suvidhiUserID).
+		Update("enabled", enabled).
+		Error
+}
+
+func DeleteCameraAccessUser(suvidhiUserID string) error {
+	if suvidhiUserID == "" {
+		return errors.New("suvidhi user id is required")
+	}
+	return DB.Where("suvidhi_user_id = ?", suvidhiUserID).Delete(&CameraAccessUser{}).Error
+}
+
+func ListCameraAccessUsers() ([]CameraAccessUser, error) {
+	var out []CameraAccessUser
+	err := DB.Order("enabled desc, updated_at desc, created_at desc").Find(&out).Error
+	return out, err
+}
+
 func seedAdminUser() error {
+	username := os.Getenv("ADMIN_USERNAME")
+	if username == "" {
+		username = "admin"
+	}
+	password := os.Getenv("ADMIN_PASSWORD")
+	if password == "" {
+		password = "admin123"
+	}
+
 	var count int64
 	DB.Model(&User{}).Count(&count)
 	if count == 0 {
-		// Create default admin user
-		// user: admin, pass: admin123
-		return CreateUser("admin", "admin123")
+		return CreateUser(username, password)
 	}
 	return nil
 }

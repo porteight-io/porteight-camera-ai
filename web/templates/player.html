@@ -373,9 +373,12 @@
             </a>
             <div class="stream-title">{{.Key}}</div>
         </div>
-        <div id="headerBadge" class="live-badge">
-            <span class="live-dot"></span>
-            LIVE
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+            <div style="font-size:0.8rem; color: var(--text-secondary);">{{.ViewerName}}{{if .ViewerEmail}} · {{.ViewerEmail}}{{end}}</div>
+            <div id="headerBadge" class="live-badge">
+                <span class="live-dot"></span>
+                LIVE
+            </div>
         </div>
     </header>
 
@@ -442,8 +445,8 @@
             </div>
             <div class="info-card">
                 <div class="info-label">HLS Playback URL</div>
-                <div class="info-value copyable" onclick="copyToClipboard(window.location.origin + '/static/hls/{{.Key}}/index.m3u8')">
-                    /static/hls/{{.Key}}/index.m3u8
+                <div class="info-value copyable" onclick="copyToClipboard(window.location.origin + '{{.LivePlaybackURL}}')">
+                    {{.LivePlaybackURL}}
                 </div>
             </div>
         </div>
@@ -459,7 +462,7 @@
         const liveBtn = document.getElementById('liveBtn');
         const overlayLive = document.getElementById('overlayLive');
         const headerBadge = document.getElementById('headerBadge');
-        const videoSrc = '/static/hls/{{.Key}}/index.m3u8';
+        const videoSrc = '{{.LivePlaybackURL}}';
         const metadataSrc = '/static/hls/{{.Key}}/stream.json';
         
         let hls = null;

@@ -17,6 +17,35 @@ SQL >
         visual_obstruction_description,
         camera_tampering_present,
         camera_tampering_description,
+        multiIf(
+            human_intrusion_present = 1, 'human_intrusion',
+            camera_tampering_present = 1, 'camera_tampering',
+            visual_obstruction_present = 1, 'visual_obstruction',
+            overall_status = 'safe', 'safe',
+            overall_status = 'error', 'error',
+            'unknown'
+        ) AS primary_alert_type,
+        multiIf(
+            human_intrusion_present = 1, 'Human intrusion detected',
+            camera_tampering_present = 1, 'Camera tampering detected',
+            visual_obstruction_present = 1, 'Visual obstruction detected',
+            overall_status = 'safe', 'No alert detected',
+            overall_status = 'error', 'AI analysis error',
+            'AI alert detected'
+        ) AS primary_alert_title,
+        multiIf(
+            human_intrusion_present = 1, human_intrusion_description,
+            camera_tampering_present = 1, camera_tampering_description,
+            visual_obstruction_present = 1, visual_obstruction_description,
+            api_error != '', api_error,
+            ''
+        ) AS primary_description,
+        multiIf(
+            overall_status = 'critical', 3,
+            overall_status = 'warning', 2,
+            overall_status = 'safe', 1,
+            0
+        ) AS severity_rank,
         input_tokens,
         output_tokens,
         api_response_ms,

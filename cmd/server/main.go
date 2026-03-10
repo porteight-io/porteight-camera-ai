@@ -26,20 +26,12 @@ import (
 	"porteight-camera-ai/internal/storage"
 	"porteight-camera-ai/internal/stream"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 func signingSecret() []byte {
-	// Must be set in production. When empty, we fall back to API_BEARER_TOKEN for convenience.
-	// This still should be a long random value.
-	sec := os.Getenv("SIGNING_SECRET")
-	if sec == "" {
-		sec = os.Getenv("API_BEARER_TOKEN")
-	}
-	return []byte(sec)
+	return []byte(os.Getenv("SIGNING_SECRET"))
 }
 
 func signPath(method, path string, exp int64) string {
@@ -465,89 +457,206 @@ func main() {
 		c.Next()
 	})
 
-	// Session Store
-	// IMPORTANT: cookie.NewStore uses gorilla/securecookie. The auth key should be 32+ bytes.
-	// If it's too short, session.Save() can fail and you won't be able to login.
-	authKey := os.Getenv("SESSION_AUTH_KEY")
-	encKey := os.Getenv("SESSION_ENC_KEY") // optional (16/24/32 bytes) for encryption
-	if authKey == "" {
-		// Keep a fallback for local dev, but strongly recommend setting SESSION_AUTH_KEY in production.
-		authKey = "dev-only-please-set-SESSION_AUTH_KEY-to-a-32+-byte-secret"
-		log.Println("WARNING: SESSION_AUTH_KEY not set; using an insecure dev default. Set SESSION_AUTH_KEY in production.")
-	}
-	var store sessions.Store
-	if encKey != "" {
-		store = cookie.NewStore([]byte(authKey), []byte(encKey))
-	} else {
-		store = cookie.NewStore([]byte(authKey))
-	}
-
-	// Cookie settings (tuned for "IP:8080 over HTTP" by default)
-	secureCookie := false
-	if v := os.Getenv("SESSION_SECURE"); v != "" {
-		if b, err := strconv.ParseBool(v); err == nil {
-			secureCookie = b
-		}
-	}
-	store.Options(sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 30, // 30 days
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   secureCookie, // set true only when serving over HTTPS
-	})
-	r.Use(sessions.Sessions("mysession", store))
-
 	r.LoadHTMLGlob(filepath.Join(*webDir, "templates", "*"))
-	// Static files.
-	//
-	// Frontend templates expect:
-	// - /static/hls/<key>/index.m3u8
-	// - /static/hls/<key>/seg_*.ts
-	//
-	// But HLS_DIR may point outside ./web/static/hls (e.g. PERSIST_DIR/hls), so we mount it explicitly.
-	r.Static("/static/hls", *hlsDir)
-	// Backwards compat: some clients use /hls/<key>/index.m3u8 (API currently returns this)
-	r.Static("/hls", *hlsDir)
 	// Other static assets (if any) under web/static.
-	// NOTE: We cannot mount /static/* because it would conflict with /static/hls/*.
-	// Serve them under /assets instead.
 	r.Static("/assets", filepath.Join(*webDir, "static"))
 
-	// Public Routes
-	r.GET("/login", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "login.html", nil)
+	// Public auth helpers.
+	r.GET("/auth/required", func(c *gin.Context) {
+		reason := c.DefaultQuery("reason", "unauthorized")
+		status := http.StatusUnauthorized
+		message := "You must be logged in to access this page."
+		if reason == "forbidden" {
+			status = http.StatusForbidden
+			message = "Your account is valid, but camera access has not been allowlisted."
+		}
+		c.HTML(status, "auth_required.html", gin.H{
+			"Reason":  reason,
+			"Message": message,
+		})
 	})
 
-	r.POST("/login", func(c *gin.Context) {
-		username := c.PostForm("username")
+	// Login page (GET: render form, POST: validate credentials).
+	r.GET("/auth/login", func(c *gin.Context) {
+		redirect := c.DefaultQuery("redirect", "/")
+		c.HTML(http.StatusOK, "login.html", gin.H{
+			"Redirect": redirect,
+			"Error":    "",
+		})
+	})
+
+	r.POST("/auth/login", func(c *gin.Context) {
+		username := strings.TrimSpace(c.PostForm("username"))
 		password := c.PostForm("password")
+		redirect := c.DefaultPostForm("redirect", "/")
+		if redirect == "" {
+			redirect = "/"
+		}
 
-		user, err := db.Authenticate(username, password)
+		_, err := db.Authenticate(username, password)
 		if err != nil {
-			c.HTML(http.StatusUnauthorized, "login.html", gin.H{"Error": "Invalid credentials"})
+			log.Printf("admin login failed for user %q: %v", username, err)
+			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
+				"Redirect": redirect,
+				"Error":    "Invalid username or password.",
+			})
 			return
 		}
 
-		session := sessions.Default(c)
-		session.Set("user_id", user.ID)
-		if err := session.Save(); err != nil {
-			log.Printf("Failed to save session: %v", err)
-			c.HTML(http.StatusInternalServerError, "login.html", gin.H{"Error": "Login failed (session error). Check server logs."})
+		token, err := createAdminSessionToken(username)
+		if err != nil {
+			log.Printf("failed to create admin session for user %q: %v", username, err)
+			c.HTML(http.StatusInternalServerError, "login.html", gin.H{
+				"Redirect": redirect,
+				"Error":    "Login failed due to a server error. Please try again.",
+			})
 			return
 		}
-		c.Redirect(http.StatusFound, "/")
+
+		setAdminSessionCookie(c, token)
+		log.Printf("admin login successful for user %q", username)
+		c.Redirect(http.StatusFound, redirect)
 	})
 
 	r.GET("/logout", func(c *gin.Context) {
-		session := sessions.Default(c)
-		session.Clear()
-		session.Save()
-		c.Redirect(http.StatusFound, "/login")
+		clearAdminSessionCookie(c)
+		clearCameraAuthCookie(c)
+		c.Redirect(http.StatusFound, "/auth/login?reason=signed_out")
 	})
 
 	// Signed public media endpoints (no cookies/headers required).
 	// Used by external dashboards where <video> cannot attach Authorization headers.
+	r.GET("/public/live/:key/index.m3u8", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		key := c.Param("key")
+		playlistPath := filepath.Join(*hlsDir, key, "index.m3u8")
+		playlistBytes, err := os.ReadFile(playlistPath)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "live playlist not found"})
+			return
+		}
+
+		lines := strings.Split(string(playlistBytes), "\n")
+		outLines := make([]string, 0, len(lines))
+		for _, line := range lines {
+			trim := strings.TrimSpace(line)
+			if trim == "" || strings.HasPrefix(trim, "#") {
+				outLines = append(outLines, line)
+				continue
+			}
+			path := fmt.Sprintf("/public/live/%s/%s", key, filepath.Base(trim))
+			outLines = append(outLines, signedRelativePath(path, mediaURLTTL))
+		}
+
+		c.Header("Content-Type", "application/vnd.apple.mpegurl")
+		c.String(http.StatusOK, strings.Join(outLines, "\n"))
+	})
+
+	r.GET("/public/live/:key/:segment", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		key := c.Param("key")
+		segment := filepath.Base(c.Param("segment"))
+		localPath := filepath.Join(*hlsDir, key, segment)
+		if _, err := os.Stat(localPath); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		if strings.HasSuffix(strings.ToLower(segment), ".ts") {
+			c.Header("Content-Type", "video/MP2T")
+		}
+		c.File(localPath)
+	})
+
+	r.GET("/public/archive/:key/:session/index.m3u8", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		key := c.Param("key")
+		session := c.Param("session")
+		localPlaylist := filepath.Join(*hlsDir, key, "recordings", session, "index.m3u8")
+
+		var playlistBytes []byte
+		if s3Store != nil {
+			objPrefix := s3Store.RecordingPrefixForSession(key, session)
+			body, err := s3Store.GetObject(c.Request.Context(), objPrefix+"/index.m3u8")
+			if err == nil {
+				defer body.Close()
+				playlistBytes, _ = io.ReadAll(body)
+			}
+		}
+		if len(playlistBytes) == 0 {
+			b, err := os.ReadFile(localPlaylist)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "playlist not found"})
+				return
+			}
+			playlistBytes = b
+		}
+
+		lines := strings.Split(string(playlistBytes), "\n")
+		outLines := make([]string, 0, len(lines))
+		for _, line := range lines {
+			trim := strings.TrimSpace(line)
+			if trim == "" || strings.HasPrefix(trim, "#") {
+				outLines = append(outLines, line)
+				continue
+			}
+			path := fmt.Sprintf("/public/archive/%s/%s/%s", key, session, filepath.Base(trim))
+			outLines = append(outLines, signedRelativePath(path, mediaURLTTL))
+		}
+
+		c.Header("Content-Type", "application/vnd.apple.mpegurl")
+		c.String(http.StatusOK, strings.Join(outLines, "\n"))
+	})
+
+	r.GET("/public/archive/:key/:session/:segment", func(c *gin.Context) {
+		if !validateSignedRequest(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		key := c.Param("key")
+		session := c.Param("session")
+		segment := filepath.Base(c.Param("segment"))
+		if segment == "" {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		if s3Store != nil {
+			objPrefix := s3Store.RecordingPrefixForSession(key, session)
+			body, err := s3Store.GetObject(c.Request.Context(), objPrefix+"/"+segment)
+			if err == nil {
+				defer body.Close()
+				if strings.HasSuffix(strings.ToLower(segment), ".ts") {
+					c.Header("Content-Type", "video/MP2T")
+				}
+				_, _ = io.Copy(c.Writer, body)
+				return
+			}
+		}
+
+		localPath := filepath.Join(*hlsDir, key, "recordings", session, segment)
+		if _, err := os.Stat(localPath); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		if strings.HasSuffix(strings.ToLower(segment), ".ts") {
+			c.Header("Content-Type", "video/MP2T")
+		}
+		c.File(localPath)
+	})
+
 	r.GET("/public/rec/:key/:filename", func(c *gin.Context) {
 		if !validateSignedRequest(c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
@@ -600,16 +709,12 @@ func main() {
 		_ = cmd.Wait()
 	})
 
-	// Serve recordings (legacy static, keep for admin UI access)
-	r.Static("/recordings", *recDir)
-	// Admin UI expects /rec/<key>/<filename>
-	r.Static("/rec", *recDir)
-
 	// Protected Routes (admin UI)
 	authorized := r.Group("/")
 	authorized.Use(authMiddleware())
 	{
 		authorized.GET("/", func(c *gin.Context) {
+			viewer, _ := getCameraAuthUser(c)
 			activeStreams := rtmpSrv.GetActiveStreams()
 			keys, _ := db.GetAllStreamKeys()
 			host := c.Request.Host
@@ -617,38 +722,64 @@ func main() {
 				host = host[:idx]
 			}
 			c.HTML(http.StatusOK, "index.html", gin.H{
-				"Streams": activeStreams,
-				"Keys":    keys,
-				"Host":    host,
+				"Streams":     activeStreams,
+				"Keys":        keys,
+				"Host":        host,
+				"ViewerName":  viewer.DisplayName(),
+				"ViewerEmail": viewer.DisplayEmail(),
+				"ViewerAdmin": viewer.IsAdminUser(),
 			})
 		})
 
 		authorized.GET("/recordings-page", func(c *gin.Context) {
+			viewer, _ := getCameraAuthUser(c)
 			keys, _ := db.GetAllStreamKeys()
 			host := c.Request.Host
 			if idx := strings.LastIndex(host, ":"); idx != -1 {
 				host = host[:idx]
 			}
 			c.HTML(http.StatusOK, "recordings.html", gin.H{
-				"Keys": keys,
-				"Host": host,
+				"Keys":        keys,
+				"Host":        host,
+				"ViewerName":  viewer.DisplayName(),
+				"ViewerEmail": viewer.DisplayEmail(),
+				"ViewerAdmin": viewer.IsAdminUser(),
 			})
 		})
 
 		authorized.GET("/player/:key", func(c *gin.Context) {
+			viewer, _ := getCameraAuthUser(c)
 			key := c.Param("key")
 			host := c.Request.Host
 			if idx := strings.LastIndex(host, ":"); idx != -1 {
 				host = host[:idx]
 			}
 			c.HTML(http.StatusOK, "player.html", gin.H{
-				"Key":  key,
-				"Host": host,
+				"Key":             key,
+				"Host":            host,
+				"LivePlaybackURL": signedRelativePath(fmt.Sprintf("/public/live/%s/index.m3u8", key), mediaURLTTL),
+				"ViewerName":      viewer.DisplayName(),
+				"ViewerEmail":     viewer.DisplayEmail(),
+				"ViewerAdmin":     viewer.IsAdminUser(),
+			})
+		})
+
+		authorized.GET("/access", func(c *gin.Context) {
+			viewer, ok := getCameraAuthUser(c)
+			if !ok || !viewer.IsAdminUser() {
+				c.Redirect(http.StatusFound, "/auth/required?reason=forbidden")
+				c.Abort()
+				return
+			}
+			c.HTML(http.StatusOK, "access.html", gin.H{
+				"ViewerName":  viewer.DisplayName(),
+				"ViewerEmail": viewer.DisplayEmail(),
+				"ViewerAdmin": viewer.IsAdminUser(),
 			})
 		})
 	}
 
-	// API (Bearer token OR session) for external dashboard
+	// API protected by NextAuth token validation + camera allowlist.
 	api := r.Group("/api")
 	api.Use(apiAuthMiddleware())
 	{
@@ -823,7 +954,15 @@ func main() {
 			for _, r := range recordings {
 				playlist := r.Playlist
 				if s3Store != nil && !r.IsLive {
-					playlist = fmt.Sprintf("/api/hls/%s/recordings/%s/index.m3u8", r.Key, r.Filename)
+					playlist = signedRelativePath(
+						fmt.Sprintf("/public/archive/%s/%s/index.m3u8", r.Key, r.Filename),
+						mediaURLTTL,
+					)
+				} else if !r.IsLive {
+					playlist = signedRelativePath(
+						fmt.Sprintf("/public/archive/%s/%s/index.m3u8", r.Key, r.Filename),
+						mediaURLTTL,
+					)
 				}
 				bySession[r.Filename] = recOut{
 					Key:       r.Key,
@@ -859,7 +998,7 @@ func main() {
 					bySession[s.Session] = recOut{
 						Key:       key,
 						Filename:  s.Session,
-						Playlist:  fmt.Sprintf("/api/hls/%s/recordings/%s/index.m3u8", key, s.Session),
+						Playlist:  signedRelativePath(fmt.Sprintf("/public/archive/%s/%s/index.m3u8", key, s.Session), mediaURLTTL),
 						StartTime: startTs,
 						EndTime:   endTs,
 						Size:      s.SizeBytes,
@@ -886,8 +1025,8 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{
 				"recordings": enriched,
 				"isLive":     isLive,
-				// live HLS (rolling)
-				"hlsUrl": fmt.Sprintf("/hls/%s/index.m3u8", key),
+				// Signed live HLS URL (rolling playlist + segments).
+				"hlsUrl": signedRelativePath(fmt.Sprintf("/public/live/%s/index.m3u8", key), mediaURLTTL),
 			})
 		})
 
@@ -948,8 +1087,8 @@ func main() {
 						outLines = append(outLines, fmt.Sprintf("/api/hls/%s/recordings/%s/%s", key, session, trim))
 					}
 				} else {
-					// Local fallback (served by /static/hls)
-					outLines = append(outLines, fmt.Sprintf("/static/hls/%s/recordings/%s/%s", key, session, trim))
+					// Local fallback proxied through the authenticated API.
+					outLines = append(outLines, fmt.Sprintf("/api/hls/%s/recordings/%s/%s", key, session, trim))
 				}
 			}
 
@@ -1086,13 +1225,32 @@ func main() {
 			// Create per-segment (trimmed) files when needed, otherwise use the original file.
 			for i, sreq := range segs {
 				pl := sreq.Playlist
-				if pl == "" || !strings.HasSuffix(strings.ToLower(pl), ".m3u8") || !strings.HasPrefix(pl, "/static/hls/") {
+				if idx := strings.Index(pl, "?"); idx >= 0 {
+					pl = pl[:idx]
+				}
+				if pl == "" || !strings.HasSuffix(strings.ToLower(pl), ".m3u8") {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid playlist"})
 					return
 				}
 
-				// Map URL playlist -> filesystem path under configured HLS_DIR
-				rel := strings.TrimPrefix(pl, "/static/hls/")
+				// Map playback URL -> filesystem path under configured HLS_DIR.
+				var rel string
+				switch {
+				case strings.HasPrefix(pl, "/public/archive/"):
+					parts := strings.Split(strings.TrimPrefix(pl, "/public/archive/"), "/")
+					if len(parts) < 3 {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "invalid archive playlist path"})
+						return
+					}
+					rel = filepath.Join(parts[0], "recordings", parts[1], "index.m3u8")
+				case strings.HasPrefix(pl, "/api/hls/"):
+					rel = strings.TrimPrefix(pl, "/api/hls/")
+				case strings.HasPrefix(pl, "/static/hls/"):
+					rel = strings.TrimPrefix(pl, "/static/hls/")
+				default:
+					c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported playlist path"})
+					return
+				}
 				rel = filepath.Clean(rel)
 				if strings.HasPrefix(rel, "..") {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid playlist path"})
@@ -1382,34 +1540,8 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"url": url})
 		})
 
-		// GET /api/s3/proxy?key=...&token=... – proxy-stream an S3 object (avoids CORS issues for video playback)
-		// Accepts auth via Bearer header, session cookie, OR ?token= query parameter (for <video> tags)
+		// GET /api/s3/proxy?key=... – proxy-stream an S3 object (avoids CORS issues for video playback)
 		api.GET("/s3/proxy", func(c *gin.Context) {
-			// Check auth: Bearer header, session, or query param token
-			apiToken := os.Getenv("API_BEARER_TOKEN")
-			authHeader := c.GetHeader("Authorization")
-			qToken := c.Query("token")
-			authed := false
-
-			if apiToken != "" && strings.HasPrefix(authHeader, "Bearer ") {
-				if strings.TrimPrefix(authHeader, "Bearer ") == apiToken {
-					authed = true
-				}
-			}
-			if !authed && apiToken != "" && qToken == apiToken {
-				authed = true
-			}
-			if !authed {
-				session := sessions.Default(c)
-				if session.Get("user_id") != nil {
-					authed = true
-				}
-			}
-			if !authed {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-				return
-			}
-
 			s3Key := c.Query("key")
 			if s3Key == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "key is required"})
@@ -1458,6 +1590,101 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"ok": true, "stream_key": key})
 		})
 
+		api.GET("/access", func(c *gin.Context) {
+			if _, ok := requireCameraAdmin(c); !ok {
+				return
+			}
+			users, err := db.ListCameraAccessUsers()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list access users"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"users": users})
+		})
+
+		api.POST("/access", func(c *gin.Context) {
+			if _, ok := requireCameraAdmin(c); !ok {
+				return
+			}
+			var payload struct {
+				SuvidhiUserID string `json:"suvidhiUserId"`
+				Email         string `json:"email"`
+				Name          string `json:"name"`
+				Notes         string `json:"notes"`
+				Enabled       *bool  `json:"enabled"`
+			}
+			if err := c.ShouldBindJSON(&payload); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+				return
+			}
+			enabled := true
+			if payload.Enabled != nil {
+				enabled = *payload.Enabled
+			}
+			entry := &db.CameraAccessUser{
+				SuvidhiUserID: payload.SuvidhiUserID,
+				Email:         payload.Email,
+				Name:          payload.Name,
+				Notes:         payload.Notes,
+				Enabled:       enabled,
+			}
+			if err := db.UpsertCameraAccessUser(entry); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"ok": true, "user": entry})
+		})
+
+		api.PATCH("/access/:userID", func(c *gin.Context) {
+			if _, ok := requireCameraAdmin(c); !ok {
+				return
+			}
+			userID := c.Param("userID")
+			existing, err := db.GetCameraAccessUser(userID)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "access user not found"})
+				return
+			}
+			var payload struct {
+				Email   *string `json:"email"`
+				Name    *string `json:"name"`
+				Notes   *string `json:"notes"`
+				Enabled *bool   `json:"enabled"`
+			}
+			if err := c.ShouldBindJSON(&payload); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+				return
+			}
+			if payload.Email != nil {
+				existing.Email = *payload.Email
+			}
+			if payload.Name != nil {
+				existing.Name = *payload.Name
+			}
+			if payload.Notes != nil {
+				existing.Notes = *payload.Notes
+			}
+			if payload.Enabled != nil {
+				existing.Enabled = *payload.Enabled
+			}
+			if err := db.UpsertCameraAccessUser(existing); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"ok": true, "user": existing})
+		})
+
+		api.DELETE("/access/:userID", func(c *gin.Context) {
+			if _, ok := requireCameraAdmin(c); !ok {
+				return
+			}
+			if err := db.DeleteCameraAccessUser(c.Param("userID")); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove access user"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+		})
+
 		api.Static("/rec", *recDir)
 	}
 
@@ -1473,42 +1700,4 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down...")
-}
-
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		userID := session.Get("user_id")
-		if userID == nil {
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
-}
-
-// apiAuthMiddleware allows either a valid Bearer token or an authenticated session.
-func apiAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		apiToken := os.Getenv("API_BEARER_TOKEN")
-		authHeader := c.GetHeader("Authorization")
-
-		if apiToken != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			token := strings.TrimPrefix(authHeader, "Bearer ")
-			if token == apiToken {
-				c.Next()
-				return
-			}
-		}
-
-		// Fallback to session auth (admin cookies)
-		session := sessions.Default(c)
-		if session.Get("user_id") != nil {
-			c.Next()
-			return
-		}
-
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-	}
 }
