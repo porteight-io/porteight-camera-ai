@@ -122,6 +122,17 @@ func s3ObjectExists(ctx context.Context, s3Store *storage.S3Store, key string) b
 	return true
 }
 
+func exportMaxDurationSeconds() float64 {
+	const defaultMax = 1800.0
+	if v := os.Getenv("EXPORT_MAX_DURATION_SECONDS"); v != "" {
+		n, err := strconv.ParseFloat(v, 64)
+		if err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultMax
+}
+
 func parseArchivePlaylistLocation(pl string) (string, string, bool) {
 	switch {
 	case strings.HasPrefix(pl, "/public/archive/"):
@@ -1389,6 +1400,29 @@ func main() {
 				return
 			}
 
+			totalRequestedDuration := 0.0
+			for _, s := range segs {
+				partDuration := s.Duration
+				if s.End > 0 {
+					partDuration = s.End - s.Start
+				}
+				if partDuration < 0 {
+					partDuration = 0
+				}
+				totalRequestedDuration += partDuration
+			}
+
+			maxDuration := exportMaxDurationSeconds()
+			if totalRequestedDuration > maxDuration {
+				c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+					"error": fmt.Sprintf(
+						"file too large: exports longer than %.0f minutes are not supported right now",
+						maxDuration/60,
+					),
+				})
+				return
+			}
+
 			runID := "export-" + uuid.NewString()
 			firstPlaylist := ""
 			if len(segs) > 0 {
@@ -1396,13 +1430,13 @@ func main() {
 			}
 			// #region agent log
 			writeDebugLog(runID, "H3", "cmd/server/main.go:1216", "export request parsed", map[string]any{
-				"key":                         key,
-				"segmentCount":                len(segs),
-				"firstPlaylist":               firstPlaylist,
-				"s3Enabled":                   s3Store != nil,
-				"s3DeleteLocalSegments":       os.Getenv("S3_DELETE_LOCAL_SEGMENTS"),
-				"s3DeleteLocalSessionOnDone":  os.Getenv("S3_DELETE_LOCAL_SESSION_ON_COMPLETE"),
-				"hlsDir":                      *hlsDir,
+				"key":                        key,
+				"segmentCount":               len(segs),
+				"firstPlaylist":              firstPlaylist,
+				"s3Enabled":                  s3Store != nil,
+				"s3DeleteLocalSegments":      os.Getenv("S3_DELETE_LOCAL_SEGMENTS"),
+				"s3DeleteLocalSessionOnDone": os.Getenv("S3_DELETE_LOCAL_SESSION_ON_COMPLETE"),
+				"hlsDir":                     *hlsDir,
 			})
 			// #endregion
 
@@ -1476,15 +1510,15 @@ func main() {
 				if i < 3 {
 					// #region agent log
 					writeDebugLog(runID, "H1", "cmd/server/main.go:1279", "export segment path resolved", map[string]any{
-						"segmentIndex":   i,
-						"playlist":       sreq.Playlist,
-						"resolvedPath":   inPath,
-						"localExists":    localExists,
-						"s3IndexKey":     s3IndexKey,
-						"s3IndexExists":  s3IndexExists,
-						"start":          sreq.Start,
-						"end":            sreq.End,
-						"duration":       sreq.Duration,
+						"segmentIndex":  i,
+						"playlist":      sreq.Playlist,
+						"resolvedPath":  inPath,
+						"localExists":   localExists,
+						"s3IndexKey":    s3IndexKey,
+						"s3IndexExists": s3IndexExists,
+						"start":         sreq.Start,
+						"end":           sreq.End,
+						"duration":      sreq.Duration,
 					})
 					// #endregion
 				}
@@ -1494,12 +1528,12 @@ func main() {
 					if i < 3 {
 						// #region agent log
 						writeDebugLog(runID, "H2", "cmd/server/main.go:1294", "local playlist inspection", map[string]any{
-							"segmentIndex":      i,
-							"playlistPath":      inPath,
-							"totalSegments":     totalSegs,
-							"missingSegments":   missingSegs,
-							"firstMissingSeg":   firstMissingSeg,
-							"inspectErr":        fmt.Sprint(inspectErr),
+							"segmentIndex":    i,
+							"playlistPath":    inPath,
+							"totalSegments":   totalSegs,
+							"missingSegments": missingSegs,
+							"firstMissingSeg": firstMissingSeg,
+							"inspectErr":      fmt.Sprint(inspectErr),
 						})
 						// #endregion
 					}
@@ -1509,11 +1543,11 @@ func main() {
 				if resolveErr != nil {
 					// #region agent log
 					writeDebugLog(runID, "H1", "cmd/server/main.go:1307", "export failed to prepare playlist input", map[string]any{
-						"segmentIndex":      i,
-						"playlistPath":      inPath,
-						"s3IndexKey":        s3IndexKey,
-						"s3IndexExists":     s3IndexExists,
-						"resolveError":      resolveErr.Error(),
+						"segmentIndex":  i,
+						"playlistPath":  inPath,
+						"s3IndexKey":    s3IndexKey,
+						"s3IndexExists": s3IndexExists,
+						"resolveError":  resolveErr.Error(),
 					})
 					// #endregion
 					if os.IsNotExist(resolveErr) {
