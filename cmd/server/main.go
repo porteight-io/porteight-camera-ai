@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -64,6 +65,181 @@ func validateSignedRequest(c *gin.Context) bool {
 	expected := signPath(c.Request.Method, c.Request.URL.Path, exp)
 	return hmac.Equal([]byte(expected), []byte(sig))
 }
+
+// #region agent log
+func writeDebugLog(runID, hypothesisID, location, message string, data map[string]any) {
+	f, err := os.OpenFile("/Users/kanavmittal/Dev Work/porteight/untitled folder/.cursor/debug-8185d8.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_ = json.NewEncoder(f).Encode(map[string]any{
+		"sessionId":    "8185d8",
+		"runId":        runID,
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"message":      message,
+		"data":         data,
+		"timestamp":    time.Now().UnixMilli(),
+	})
+}
+
+func inspectLocalPlaylist(path string) (int, int, string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, "", err
+	}
+	baseDir := filepath.Dir(path)
+	total := 0
+	missing := 0
+	firstMissing := ""
+	for _, line := range strings.Split(string(b), "\n") {
+		trim := strings.TrimSpace(line)
+		if trim == "" || strings.HasPrefix(trim, "#") {
+			continue
+		}
+		total++
+		segPath := filepath.Join(baseDir, filepath.Base(trim))
+		if _, err := os.Stat(segPath); err != nil {
+			missing++
+			if firstMissing == "" {
+				firstMissing = filepath.Base(trim)
+			}
+		}
+	}
+	return total, missing, firstMissing, nil
+}
+
+func s3ObjectExists(ctx context.Context, s3Store *storage.S3Store, key string) bool {
+	if s3Store == nil || key == "" {
+		return false
+	}
+	body, err := s3Store.GetObject(ctx, key)
+	if err != nil {
+		return false
+	}
+	_ = body.Close()
+	return true
+}
+
+func parseArchivePlaylistLocation(pl string) (string, string, bool) {
+	switch {
+	case strings.HasPrefix(pl, "/public/archive/"):
+		parts := strings.Split(strings.TrimPrefix(pl, "/public/archive/"), "/")
+		if len(parts) < 3 {
+			return "", "", false
+		}
+		return parts[0], parts[1], true
+	case strings.HasPrefix(pl, "/api/hls/"):
+		parts := strings.Split(strings.TrimPrefix(pl, "/api/hls/"), "/")
+		if len(parts) < 4 || parts[1] != "recordings" {
+			return "", "", false
+		}
+		return parts[0], parts[2], true
+	default:
+		return "", "", false
+	}
+}
+
+func materializeS3PlaylistForExport(ctx context.Context, s3Store *storage.S3Store, tmpDir, streamKey, session string, segmentIndex int) (string, error) {
+	if s3Store == nil {
+		return "", fmt.Errorf("s3 is not configured")
+	}
+
+	objPrefix := s3Store.RecordingPrefixForSession(streamKey, session)
+	indexKey := objPrefix + "/index.m3u8"
+	body, err := s3Store.GetObject(ctx, indexKey)
+	if err != nil {
+		return "", fmt.Errorf("load playlist from s3: %w", err)
+	}
+	defer body.Close()
+
+	playlistBytes, err := io.ReadAll(body)
+	if err != nil {
+		return "", fmt.Errorf("read playlist from s3: %w", err)
+	}
+
+	targetDir := filepath.Join(tmpDir, fmt.Sprintf("s3_playlist_%03d", segmentIndex))
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return "", fmt.Errorf("create playlist temp dir: %w", err)
+	}
+
+	lines := strings.Split(string(playlistBytes), "\n")
+	outLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if trim == "" || strings.HasPrefix(trim, "#") {
+			outLines = append(outLines, line)
+			continue
+		}
+
+		segmentName := filepath.Base(trim)
+		segmentKey := objPrefix + "/" + segmentName
+		segmentBody, err := s3Store.GetObject(ctx, segmentKey)
+		if err != nil {
+			return "", fmt.Errorf("load segment %s from s3: %w", segmentName, err)
+		}
+
+		segmentPath := filepath.Join(targetDir, segmentName)
+		func() {
+			defer segmentBody.Close()
+
+			f, createErr := os.Create(segmentPath)
+			if createErr != nil {
+				err = fmt.Errorf("create temp segment %s: %w", segmentName, createErr)
+				return
+			}
+			defer f.Close()
+
+			if _, copyErr := io.Copy(f, segmentBody); copyErr != nil {
+				err = fmt.Errorf("write temp segment %s: %w", segmentName, copyErr)
+				return
+			}
+		}()
+		if err != nil {
+			return "", err
+		}
+
+		outLines = append(outLines, segmentName)
+	}
+
+	playlistPath := filepath.Join(targetDir, "index.m3u8")
+	if err := os.WriteFile(playlistPath, []byte(strings.Join(outLines, "\n")), 0644); err != nil {
+		return "", fmt.Errorf("write temp playlist: %w", err)
+	}
+	return playlistPath, nil
+}
+
+func resolveExportPlaylistInput(ctx context.Context, s3Store *storage.S3Store, tmpDir, localPath, playlistPath string, segmentIndex int) (string, string, error) {
+	localUsable := false
+	if _, err := os.Stat(localPath); err == nil {
+		if _, missingSegs, _, inspectErr := inspectLocalPlaylist(localPath); inspectErr == nil && missingSegs == 0 {
+			localUsable = true
+		}
+	}
+
+	if localUsable {
+		return localPath, "local", nil
+	}
+
+	streamKey, session, ok := parseArchivePlaylistLocation(playlistPath)
+	if ok && s3Store != nil {
+		s3PlaylistPath, err := materializeS3PlaylistForExport(ctx, s3Store, tmpDir, streamKey, session, segmentIndex)
+		if err == nil {
+			return s3PlaylistPath, "s3", nil
+		}
+		if !localUsable {
+			return "", "", err
+		}
+	}
+
+	if localUsable {
+		return localPath, "local", nil
+	}
+	return "", "", os.ErrNotExist
+}
+
+// #endregion
 
 func main() {
 	// ──── Log file setup ────
@@ -891,16 +1067,16 @@ func main() {
 			// If S3 is configured, derive the sidebar keys list from DB-indexed sessions instead.
 			if s3Store != nil {
 				type aggRow struct {
-					StreamKey       string    `gorm:"column:stream_key"`
-					TotalRecordings int64     `gorm:"column:total_recordings"`
-					TotalDuration   float64   `gorm:"column:total_duration"`
-					TotalSize       int64     `gorm:"column:total_size"`
-					Earliest        time.Time `gorm:"column:earliest"`
-					Latest          time.Time `gorm:"column:latest"`
+					StreamKey       string        `gorm:"column:stream_key"`
+					TotalRecordings int64         `gorm:"column:total_recordings"`
+					TotalDuration   float64       `gorm:"column:total_duration"`
+					TotalSize       int64         `gorm:"column:total_size"`
+					Earliest        sql.NullInt64 `gorm:"column:earliest"`
+					Latest          sql.NullInt64 `gorm:"column:latest"`
 				}
 				var rows []aggRow
 				_ = db.DB.Model(&db.HLSRecordingSession{}).
-					Select("stream_key as stream_key, count(*) as total_recordings, sum(duration) as total_duration, sum(size_bytes) as total_size, min(start_time) as earliest, max(end_time) as latest").
+					Select("stream_key as stream_key, count(*) as total_recordings, sum(duration) as total_duration, sum(size_bytes) as total_size, min(CAST(strftime('%s', start_time) AS INTEGER)) as earliest, max(CAST(strftime('%s', end_time) AS INTEGER)) as latest").
 					Group("stream_key").
 					Order("earliest asc").
 					Scan(&rows).Error
@@ -908,14 +1084,22 @@ func main() {
 				keys := make([]gin.H, 0, len(rows))
 				for _, r := range rows {
 					isLive := rtmpSrv.IsStreamLive(r.StreamKey)
+					var earliestUnix int64
+					var latestUnix int64
+					if r.Earliest.Valid {
+						earliestUnix = r.Earliest.Int64
+					}
+					if r.Latest.Valid {
+						latestUnix = r.Latest.Int64
+					}
 					keys = append(keys, gin.H{
 						"key":             r.StreamKey,
 						"totalRecordings": r.TotalRecordings,
 						"totalDuration":   r.TotalDuration,
 						"totalSize":       r.TotalSize,
 						"isLive":          isLive,
-						"earliestRecord":  r.Earliest.Unix(),
-						"latestRecord":    r.Latest.Unix(),
+						"earliestRecord":  earliestUnix,
+						"latestRecord":    latestUnix,
 					})
 				}
 				c.JSON(http.StatusOK, gin.H{"keys": keys})
@@ -1205,6 +1389,23 @@ func main() {
 				return
 			}
 
+			runID := "export-" + uuid.NewString()
+			firstPlaylist := ""
+			if len(segs) > 0 {
+				firstPlaylist = segs[0].Playlist
+			}
+			// #region agent log
+			writeDebugLog(runID, "H3", "cmd/server/main.go:1216", "export request parsed", map[string]any{
+				"key":                         key,
+				"segmentCount":                len(segs),
+				"firstPlaylist":               firstPlaylist,
+				"s3Enabled":                   s3Store != nil,
+				"s3DeleteLocalSegments":       os.Getenv("S3_DELETE_LOCAL_SEGMENTS"),
+				"s3DeleteLocalSessionOnDone":  os.Getenv("S3_DELETE_LOCAL_SESSION_ON_COMPLETE"),
+				"hlsDir":                      *hlsDir,
+			})
+			// #endregion
+
 			// Validate and build absolute paths
 			tmpDir, err := os.MkdirTemp("", "porteight-export-*")
 			if err != nil {
@@ -1257,10 +1458,72 @@ func main() {
 					return
 				}
 				inPath := filepath.Join(*hlsDir, rel)
+
+				localExists := true
 				if _, err := os.Stat(inPath); err != nil {
-					c.JSON(http.StatusNotFound, gin.H{"error": "playlist not found"})
+					localExists = false
+				}
+
+				s3IndexKey := ""
+				if strings.HasPrefix(pl, "/public/archive/") && s3Store != nil {
+					parts := strings.Split(strings.TrimPrefix(pl, "/public/archive/"), "/")
+					if len(parts) >= 3 {
+						s3IndexKey = s3Store.RecordingPrefixForSession(parts[0], parts[1]) + "/index.m3u8"
+					}
+				}
+				s3IndexExists := s3ObjectExists(c.Request.Context(), s3Store, s3IndexKey)
+
+				if i < 3 {
+					// #region agent log
+					writeDebugLog(runID, "H1", "cmd/server/main.go:1279", "export segment path resolved", map[string]any{
+						"segmentIndex":   i,
+						"playlist":       sreq.Playlist,
+						"resolvedPath":   inPath,
+						"localExists":    localExists,
+						"s3IndexKey":     s3IndexKey,
+						"s3IndexExists":  s3IndexExists,
+						"start":          sreq.Start,
+						"end":            sreq.End,
+						"duration":       sreq.Duration,
+					})
+					// #endregion
+				}
+
+				if localExists {
+					totalSegs, missingSegs, firstMissingSeg, inspectErr := inspectLocalPlaylist(inPath)
+					if i < 3 {
+						// #region agent log
+						writeDebugLog(runID, "H2", "cmd/server/main.go:1294", "local playlist inspection", map[string]any{
+							"segmentIndex":      i,
+							"playlistPath":      inPath,
+							"totalSegments":     totalSegs,
+							"missingSegments":   missingSegs,
+							"firstMissingSeg":   firstMissingSeg,
+							"inspectErr":        fmt.Sprint(inspectErr),
+						})
+						// #endregion
+					}
+				}
+
+				resolvedInputPath, inputStorage, resolveErr := resolveExportPlaylistInput(c.Request.Context(), s3Store, tmpDir, inPath, pl, i)
+				if resolveErr != nil {
+					// #region agent log
+					writeDebugLog(runID, "H1", "cmd/server/main.go:1307", "export failed to prepare playlist input", map[string]any{
+						"segmentIndex":      i,
+						"playlistPath":      inPath,
+						"s3IndexKey":        s3IndexKey,
+						"s3IndexExists":     s3IndexExists,
+						"resolveError":      resolveErr.Error(),
+					})
+					// #endregion
+					if os.IsNotExist(resolveErr) {
+						c.JSON(http.StatusNotFound, gin.H{"error": "playlist not found"})
+					} else {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to prepare playlist"})
+					}
 					return
 				}
+				inPath = resolvedInputPath
 
 				start := sreq.Start
 				end := sreq.End
@@ -1311,6 +1574,16 @@ func main() {
 					cmdCopy := exec.Command("ffmpeg", argsCopy...)
 					out, err := cmdCopy.CombinedOutput()
 					if err != nil {
+						// #region agent log
+						writeDebugLog(runID, "H4", "cmd/server/main.go:1368", "ffmpeg trim copy failed", map[string]any{
+							"segmentIndex": i,
+							"inputPath":    inPath,
+							"inputStorage": inputStorage,
+							"outputPath":   outPath,
+							"error":        err.Error(),
+							"output":       string(out),
+						})
+						// #endregion
 						log.Printf("ffmpeg trim (copy) failed: %v output=%s", err, string(out))
 						// fallback: re-encode this part
 						argsX := []string{
@@ -1337,6 +1610,16 @@ func main() {
 						cmdX := exec.Command("ffmpeg", argsX...)
 						out2, err2 := cmdX.CombinedOutput()
 						if err2 != nil {
+							// #region agent log
+							writeDebugLog(runID, "H4", "cmd/server/main.go:1394", "ffmpeg trim xcode failed", map[string]any{
+								"segmentIndex": i,
+								"inputPath":    inPath,
+								"inputStorage": inputStorage,
+								"outputPath":   outPath,
+								"error":        err2.Error(),
+								"output":       string(out2),
+							})
+							// #endregion
 							log.Printf("ffmpeg trim (xcode) failed: %v output=%s", err2, string(out2))
 							c.JSON(http.StatusInternalServerError, gin.H{"error": "ffmpeg trim failed"})
 							return
@@ -1362,6 +1645,16 @@ func main() {
 					cmd := exec.Command("ffmpeg", args...)
 					out, err := cmd.CombinedOutput()
 					if err != nil {
+						// #region agent log
+						writeDebugLog(runID, "H4", "cmd/server/main.go:1421", "ffmpeg part copy failed", map[string]any{
+							"segmentIndex": i,
+							"inputPath":    inPath,
+							"inputStorage": inputStorage,
+							"outputPath":   outPath,
+							"error":        err.Error(),
+							"output":       string(out),
+						})
+						// #endregion
 						log.Printf("ffmpeg part (copy) failed: %v output=%s", err, string(out))
 						// fallback: re-encode full part
 						argsX := []string{
@@ -1382,6 +1675,16 @@ func main() {
 						cmdX := exec.Command("ffmpeg", argsX...)
 						out2, err2 := cmdX.CombinedOutput()
 						if err2 != nil {
+							// #region agent log
+							writeDebugLog(runID, "H4", "cmd/server/main.go:1444", "ffmpeg part xcode failed", map[string]any{
+								"segmentIndex": i,
+								"inputPath":    inPath,
+								"inputStorage": inputStorage,
+								"outputPath":   outPath,
+								"error":        err2.Error(),
+								"output":       string(out2),
+							})
+							// #endregion
 							log.Printf("ffmpeg part (xcode) failed: %v output=%s", err2, string(out2))
 							c.JSON(http.StatusInternalServerError, gin.H{"error": "ffmpeg export failed"})
 							return
@@ -1426,6 +1729,14 @@ func main() {
 			cmdCopy := exec.Command("ffmpeg", argsCopy...)
 			out, err := cmdCopy.CombinedOutput()
 			if err != nil {
+				// #region agent log
+				writeDebugLog(runID, "H4", "cmd/server/main.go:1487", "ffmpeg final concat copy failed", map[string]any{
+					"concatListPath": concatListPath,
+					"outFile":        outFile,
+					"error":          err.Error(),
+					"output":         string(out),
+				})
+				// #endregion
 				// Fallback: re-encode the concat output (more robust across timestamp/codec quirks).
 				log.Printf("ffmpeg export (copy) failed: %v output=%s", err, string(out))
 
@@ -1453,6 +1764,14 @@ func main() {
 				cmdXcode := exec.Command("ffmpeg", argsXcode...)
 				out2, err2 := cmdXcode.CombinedOutput()
 				if err2 != nil {
+					// #region agent log
+					writeDebugLog(runID, "H4", "cmd/server/main.go:1513", "ffmpeg final concat xcode failed", map[string]any{
+						"concatListPath": concatListPath,
+						"outFile":        outFile,
+						"error":          err2.Error(),
+						"output":         string(out2),
+					})
+					// #endregion
 					log.Printf("ffmpeg export (xcode) failed: %v output=%s", err2, string(out2))
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "ffmpeg export failed"})
 					return
@@ -1462,6 +1781,16 @@ func main() {
 				log.Printf("ffmpeg export produced empty file: %s", outFile)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "ffmpeg export produced empty output"})
 				return
+			}
+
+			if fi, err := os.Stat(outFile); err == nil {
+				// #region agent log
+				writeDebugLog(runID, "H4", "cmd/server/main.go:1527", "export file ready", map[string]any{
+					"outFile": outFile,
+					"size":    fi.Size(),
+					"name":    downloadName,
+				})
+				// #endregion
 			}
 
 			c.FileAttachment(outFile, downloadName)
