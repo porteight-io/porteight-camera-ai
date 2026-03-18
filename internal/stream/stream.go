@@ -413,6 +413,18 @@ func (s *Server) handlePublish(conn *rtmp.Conn) {
 	liveCmd.Wait()
 	archiveCmd.Wait()
 
+	// Append #EXT-X-ENDLIST to the live playlist so HLS clients detect the stream
+	// end cleanly instead of retrying indefinitely with 404 segment requests.
+	livePlaylistPath := filepath.Join(liveDir, "index.m3u8")
+	if content, readErr := os.ReadFile(livePlaylistPath); readErr == nil {
+		if !bytes.Contains(content, []byte("#EXT-X-ENDLIST")) {
+			if f, openErr := os.OpenFile(livePlaylistPath, os.O_WRONLY|os.O_APPEND, 0644); openErr == nil {
+				_, _ = f.WriteString("#EXT-X-ENDLIST\n")
+				f.Close()
+			}
+		}
+	}
+
 	// Mark stream as inactive
 	metadata.Active = false
 	s.writeStreamMetadata(liveDir, metadata)
